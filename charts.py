@@ -175,6 +175,65 @@ def curva_drawdown(precos, nome: str = "Drawdown") -> go.Figure:
     return figura
 
 
+def linhas_margens(tabela: pd.DataFrame) -> go.Figure:
+    """Margem bruta, EBITDA e liquida por trimestre."""
+    if tabela is None or tabela.empty:
+        return _sem_dados("O Yahoo nao publica margens trimestrais para esta acao.")
+
+    cores = {"Margem bruta": ACENTO, "Margem EBITDA": SMA_CURTA, "Margem liquida": POSITIVO}
+    figura = go.Figure()
+    for coluna in tabela.columns:
+        figura.add_trace(
+            go.Scatter(
+                x=tabela.index,
+                y=tabela[coluna] * 100,
+                name=coluna,
+                mode="lines+markers",
+                line=dict(color=cores.get(coluna, SECUNDARIO), width=1.8),
+            )
+        )
+    figura.update_layout(
+        template=TEMPLATE,
+        height=360,
+        margin=dict(l=10, r=10, t=30, b=10),
+        hovermode="x unified",
+        yaxis_title="Margem %",
+        legend=dict(orientation="h", yanchor="bottom", y=1.01, x=0),
+    )
+    return figura
+
+
+def barras_balanco(tabela: pd.DataFrame) -> go.Figure:
+    """Divida bruta, caixa e patrimonio liquido por trimestre."""
+    if tabela is None or tabela.empty:
+        return _sem_dados("O Yahoo nao publica balanco trimestral para esta acao.")
+
+    maximo = float(tabela.abs().to_numpy().max())
+    divisor, unidade = (1e9, "R$ bilhoes") if maximo >= 1e9 else (1e6, "R$ milhoes")
+
+    cores = {"Divida bruta": NEGATIVO, "Caixa": POSITIVO, "Patrimonio liquido": ACENTO}
+    figura = go.Figure()
+    for coluna in tabela.columns:
+        figura.add_trace(
+            go.Bar(
+                x=tabela.index,
+                y=tabela[coluna] / divisor,
+                name=coluna,
+                marker_color=cores.get(coluna, SECUNDARIO),
+            )
+        )
+    figura.update_layout(
+        template=TEMPLATE,
+        height=360,
+        barmode="group",
+        margin=dict(l=10, r=10, t=30, b=10),
+        hovermode="x unified",
+        yaxis_title=unidade,
+        legend=dict(orientation="h", yanchor="bottom", y=1.01, x=0),
+    )
+    return figura
+
+
 def serie_volatilidade(precos, janela: int = 21, intervalo=None) -> go.Figure:
     serie = calc.volatilidade_movel(precos, janela)
     if serie.empty:

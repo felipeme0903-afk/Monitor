@@ -5,13 +5,13 @@ GICS, além de índices globais, juros, commodities e câmbio. Todos os dados v�
 do Yahoo Finance e da API SGS do Banco Central. Não há chamada a modelos de IA:
 o pipeline é determinístico e não exige nenhuma chave de API.
 
-## Estado atual: Etapa 2 de 5
+## Estado atual: Etapa 3 de 5
 
 | Etapa | Escopo | Situação |
 |-------|--------|----------|
 | 1 | `universe.py`, `data.py`, barra lateral e Aba 3 (screener) | Concluída |
 | 2 | `metrics.py` completo, `charts.py` e Aba 4 (raio-X individual) | Concluída |
-| 3 | Aba 5 (fundamentos) com cache em disco | Pendente |
+| 3 | Aba 5 (fundamentos) com cache em disco | Concluída |
 | 4 | Abas 1 e 2 e KPIs do topo | Pendente |
 | 5 | `theme.py`, revisão de erros e README final | Pendente |
 
@@ -81,6 +81,11 @@ cache.
   inicial, elevada ao inverso do número de anos entre elas.
 - **Médias móveis**: SMA de 50 e de 200 pregões, calculadas sobre a série
   inteira e só depois recortadas para a janela visível.
+- **Margens por trimestre**: cada trimestre publicado dividido pela sua própria
+  receita, sem acumular doze meses. Colunas inteiramente vazias somem do
+  gráfico, o que acontece com bancos, que não reportam lucro bruto nem EBITDA.
+- **Proventos**: apenas data ex e valor por ação. O Yahoo não informa Data Com e
+  não separa dividendo de juros sobre capital próprio.
 
 ## Fontes de dados
 

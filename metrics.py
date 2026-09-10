@@ -445,6 +445,70 @@ def drawdown_maximo(precos) -> float:
     return float(curva.min())
 
 
+def _ebitda_por_trimestre(dre: pd.DataFrame) -> pd.Series:
+    serie = linha(dre, "ebitda")
+    if not serie.empty:
+        return serie
+    ebit = linha(dre, "ebit")
+    depreciacao = linha(dre, "depreciacao")
+    if ebit.empty:
+        return pd.Series(dtype=float)
+    if depreciacao.empty:
+        return pd.Series(dtype=float)
+    return ebit.add(depreciacao, fill_value=0.0).dropna()
+
+
+def margens_por_trimestre(fundamentos: dict, quantidade: int = 8) -> pd.DataFrame:
+    """Margem bruta, EBITDA e liquida de cada trimestre publicado."""
+    dre = fundamentos.get("trimestral_dre")
+    receita = linha(dre, "receita")
+    if receita.empty:
+        return pd.DataFrame()
+
+    bruta = linha(dre, "lucro_bruto").div(receita)
+    ebitda = _ebitda_por_trimestre(dre).div(receita)
+    liquida = _lucro_por_trimestre(dre).div(receita)
+
+    tabela = pd.DataFrame(
+        {
+            "Margem bruta": bruta,
+            "Margem EBITDA": ebitda,
+            "Margem liquida": liquida,
+        }
+    )
+    tabela = tabela.reindex(receita.index).sort_index().tail(quantidade)
+    return tabela.dropna(axis=1, how="all").dropna(how="all")
+
+
+def _lucro_por_trimestre(dre: pd.DataFrame) -> pd.Series:
+    return linha(dre, "lucro_liquido")
+
+
+def balanco_por_trimestre(fundamentos: dict, quantidade: int = 8) -> pd.DataFrame:
+    """Divida bruta, caixa e patrimonio liquido de cada trimestre."""
+    balanco = fundamentos.get("trimestral_bp")
+    patrimonio = linha(balanco, "patrimonio")
+    if patrimonio.empty:
+        return pd.DataFrame()
+
+    divida = linha(balanco, "divida_bruta")
+    if divida.empty:
+        divida = linha(balanco, "divida_longa").add(
+            linha(balanco, "divida_curta"), fill_value=0.0
+        )
+    caixa = linha(balanco, "caixa")
+
+    tabela = pd.DataFrame(
+        {
+            "Divida bruta": divida,
+            "Caixa": caixa,
+            "Patrimonio liquido": patrimonio,
+        }
+    )
+    tabela = tabela.reindex(patrimonio.index).sort_index().tail(quantidade)
+    return tabela.dropna(axis=1, how="all").dropna(how="all")
+
+
 def volatilidade_movel(precos, janela: int = 21) -> pd.Series:
     """Volatilidade anualizada em janela movel."""
     retornos = retornos_log(precos)

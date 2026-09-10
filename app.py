@@ -310,6 +310,82 @@ def _texto(valor, sufixo: str = "") -> str:
     return f"{valor:,.2f}{sufixo}"
 
 
+# ----------------------------------------------------------- fundamentos
+
+
+def aba_fundamentos(
+    controles: dict,
+    cotacoes: dict[str, pd.DataFrame],
+    inicio: pd.Timestamp,
+    fim: pd.Timestamp,
+) -> None:
+    acoes = uni.tickers_do_setor(controles["setor"])
+    if not acoes:
+        st.info("Nenhuma acao cadastrada neste setor.")
+        return
+
+    escolhida = st.selectbox(
+        "Acao", acoes, format_func=lambda t: f"{t} - {uni.nome_de(t)}", key="fundamentos"
+    )
+    chave = uni.para_yahoo(escolhida)
+    fundamentos, falhas = fonte.carregar_fundamentos((chave,))
+    if chave in falhas:
+        st.error(f"{escolhida}: {falhas[chave]}")
+        return
+    fund = fundamentos.get(chave, {})
+
+    st.caption("Margens por trimestre publicado")
+    st.plotly_chart(
+        graf.linhas_margens(calc.margens_por_trimestre(fund)), width="stretch"
+    )
+
+    st.caption("Divida bruta, caixa e patrimonio liquido por trimestre")
+    st.plotly_chart(
+        graf.barras_balanco(calc.balanco_por_trimestre(fund)), width="stretch"
+    )
+
+    st.caption(f"Proventos entre {inicio:%d/%m/%Y} e {fim:%d/%m/%Y}")
+    _tabela_proventos(chave, cotacoes, inicio, fim)
+
+
+def _tabela_proventos(
+    chave: str,
+    cotacoes: dict[str, pd.DataFrame],
+    inicio: pd.Timestamp,
+    fim: pd.Timestamp,
+) -> None:
+    df = cotacoes.get(chave)
+    if df is None:
+        avulso, _ = fonte.baixar_cotacoes((chave,))
+        df = avulso.get(chave)
+    if df is None:
+        st.info("Sem cotacoes para levantar os proventos.")
+        return
+
+    serie = fonte.proventos(df)
+    janela = serie[(serie.index >= inicio) & (serie.index <= fim)]
+    if janela.empty:
+        st.info("Nenhum provento com data ex dentro da janela escolhida.")
+        return
+
+    tabela = pd.DataFrame(
+        {
+            "Data ex": janela.index.strftime("%d/%m/%Y"),
+            "Valor por acao": janela.to_numpy(),
+        }
+    ).iloc[::-1]
+
+    st.dataframe(
+        tabela.style.format({"Valor por acao": "{:,.4f}"}),
+        width="stretch",
+        hide_index=True,
+    )
+    st.caption(
+        f"Total no periodo: {janela.sum():,.4f} por acao em {len(janela)} pagamento(s). "
+        "O Yahoo nao informa Data Com nem separa dividendo de JCP."
+    )
+
+
 # -------------------------------------------------------------------- main
 
 
@@ -338,15 +414,18 @@ def main() -> None:
     )
 
     abas = st.tabs(["Panorama Macro", "Setores", "Screener", "Raio-X", "Fundamentos"])
-    for indice, etapa in ((0, 4), (1, 4), (4, 3)):
+    for indice in (0, 1):
         with abas[indice]:
-            st.info(f"Aba prevista para a Etapa {etapa} da implementacao.")
+            st.info("Aba prevista para a Etapa 4 da implementacao.")
 
     with abas[2]:
         aba_screener(controles, cotacoes, falhas_preco, inicio, fim)
 
     with abas[3]:
         aba_raio_x(controles, cotacoes, inicio, fim)
+
+    with abas[4]:
+        aba_fundamentos(controles, cotacoes, inicio, fim)
 
 
 def aba_screener(
