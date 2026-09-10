@@ -1,7 +1,7 @@
 """Monitor B3 - interface Streamlit.
 
-Etapa 1: barra lateral com os controles globais e a Aba 3 (screener do
-setor). As demais abas ficam sinalizadas ate as etapas seguintes.
+Abas prontas: 3 (screener do setor) e 4 (raio-X individual). As demais
+ficam sinalizadas ate as etapas seguintes.
 
 Rodar com:  streamlit run app.py
 """
@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+import charts as graf
 import data as fonte
 import metrics as calc
 import universe as uni
@@ -210,6 +211,105 @@ def exibir_tabela(tabela: pd.DataFrame) -> None:
     st.dataframe(estilo, width="stretch", hide_index=True)
 
 
+# ---------------------------------------------------------------- raio-x
+
+
+def opcoes_raio_x(setor: str) -> list[str]:
+    """Acoes do setor escolhido mais todos os ativos macro."""
+    return uni.tickers_do_setor(setor) + uni.tickers_macro()
+
+
+def rotulo_raio_x(ticker: str) -> str:
+    classe = uni.setor_de(ticker)
+    return f"{ticker} - {uni.nome_de(ticker)} ({classe})"
+
+
+def aba_raio_x(
+    controles: dict,
+    cotacoes: dict[str, pd.DataFrame],
+    inicio: pd.Timestamp,
+    fim: pd.Timestamp,
+) -> None:
+    esquerda, direita = st.columns([3, 1])
+    escolhido = esquerda.selectbox(
+        "Ativo", opcoes_raio_x(controles["setor"]), format_func=rotulo_raio_x
+    )
+    tipo = direita.radio("Grafico", ["Candlestick", "Linha"], horizontal=True)
+
+    chave = uni.para_yahoo(escolhido)
+    df = cotacoes.get(chave)
+    if df is None:
+        # Indices e commodities nao vem no lote do setor: buscamos sob demanda.
+        avulso, falhas = fonte.baixar_cotacoes((chave,))
+        df = avulso.get(chave)
+        if df is None:
+            st.error(f"Sem cotacoes para {escolhido}: {falhas.get(chave, 'motivo desconhecido')}")
+            return
+
+    janela = df.loc[(df.index >= inicio) & (df.index <= fim)]
+    if janela.empty:
+        st.warning("A janela escolhida nao cobre nenhum pregao deste ativo.")
+        return
+
+    _cartoes_raio_x(chave, df, janela, inicio, fim)
+
+    st.plotly_chart(
+        graf.preco_com_medias(df, escolhido, tipo, (inicio, fim)), width="stretch"
+    )
+
+    coluna_a, coluna_b = st.columns(2)
+    with coluna_a:
+        st.caption("Drawdown a partir do inicio da janela")
+        st.plotly_chart(graf.curva_drawdown(janela["Adj Close"]), width="stretch")
+    with coluna_b:
+        st.caption("Volatilidade movel de 21 dias, anualizada")
+        st.plotly_chart(
+            graf.serie_volatilidade(df["Adj Close"], 21, (inicio, fim)), width="stretch"
+        )
+
+
+def _cartoes_raio_x(
+    chave: str,
+    df: pd.DataFrame,
+    janela: pd.DataFrame,
+    inicio: pd.Timestamp,
+    fim: pd.Timestamp,
+) -> None:
+    retorno = calc.retorno_periodo(df["Adj Close"], inicio, fim)
+    total = calc.retorno_total(df["Close"], fonte.proventos(df), inicio, fim)
+    maximo = calc.drawdown_maximo(janela["Adj Close"])
+
+    linha_um = st.columns(4)
+    linha_um[0].metric("Preco", _texto(calc.ultimo_valor(df["Close"], fim)))
+    linha_um[1].metric("Retorno no periodo", _texto(_pct(retorno), "%"))
+    linha_um[2].metric("Retorno total", _texto(_pct(total), "%"))
+    linha_um[3].metric("Drawdown maximo", _texto(_pct(maximo), "%"))
+    st.caption("Retorno total soma os proventos do intervalo e ignora reinvestimento.")
+
+    if uni.de_yahoo(chave) not in uni.todos_tickers_b3():
+        st.caption("Indicadores fundamentalistas nao se aplicam a indices e commodities.")
+        return
+
+    fundamentos, _ = fonte.carregar_fundamentos((chave,))
+    fund = fundamentos.get(chave, {})
+    margem = calc.margens(fund, fim)
+
+    linha_dois = st.columns(5)
+    linha_dois[0].metric("P/L LTM", _texto(calc.preco_lucro(fund, fim)))
+    linha_dois[1].metric("EV/EBITDA", _texto(calc.ev_ebitda(fund, fim)))
+    linha_dois[2].metric("ROE", _texto(_pct(calc.roe(fund, fim)), "%"))
+    linha_dois[3].metric("Margem liquida", _texto(_pct(margem["liquida"]), "%"))
+    linha_dois[4].metric(
+        "Divida liquida/EBITDA", _texto(calc.divida_liquida_ebitda(fund, fim), "x")
+    )
+
+
+def _texto(valor, sufixo: str = "") -> str:
+    if valor is None or pd.isna(valor):
+        return "n/d"
+    return f"{valor:,.2f}{sufixo}"
+
+
 # -------------------------------------------------------------------- main
 
 
@@ -231,30 +331,41 @@ def main() -> None:
     ultimo_pregao = max(df.index.max() for df in cotacoes.values())
     inicio, fim = intervalo(controles, ultimo_pregao)
 
-    st.title(f"Screener - {controles['setor']}")
+    st.title(f"Monitor B3 - {controles['setor']}")
     st.caption(
         f"Janela {inicio:%d/%m/%Y} a {fim:%d/%m/%Y} | benchmark {controles['benchmark']} | "
         f"beta {controles['periodicidade'].lower()} | ultimo pregao {ultimo_pregao:%d/%m/%Y}"
     )
 
-    abas = st.tabs(
-        ["Panorama Macro", "Setores", "Screener", "Raio-X", "Fundamentos"]
-    )
-    for indice, etapa in ((0, 4), (1, 4), (3, 2), (4, 3)):
+    abas = st.tabs(["Panorama Macro", "Setores", "Screener", "Raio-X", "Fundamentos"])
+    for indice, etapa in ((0, 4), (1, 4), (4, 3)):
         with abas[indice]:
             st.info(f"Aba prevista para a Etapa {etapa} da implementacao.")
 
     with abas[2]:
-        if not controles["tickers"]:
-            st.warning("Selecione ao menos um ticker na barra lateral.")
-            return
+        aba_screener(controles, cotacoes, falhas_preco, inicio, fim)
 
-        selecionados = tuple(uni.para_yahoo(t) for t in controles["tickers"])
-        fundamentos, falhas_fund = fonte.carregar_fundamentos(selecionados)
+    with abas[3]:
+        aba_raio_x(controles, cotacoes, inicio, fim)
 
-        tabela = montar_screener(controles, cotacoes, fundamentos, inicio, fim)
-        exibir_tabela(aplicar_filtros(tabela))
-        _listar_falhas(falhas_preco, falhas_fund)
+
+def aba_screener(
+    controles: dict,
+    cotacoes: dict[str, pd.DataFrame],
+    falhas_preco: dict[str, str],
+    inicio: pd.Timestamp,
+    fim: pd.Timestamp,
+) -> None:
+    if not controles["tickers"]:
+        st.warning("Selecione ao menos um ticker na barra lateral.")
+        return
+
+    selecionados = tuple(uni.para_yahoo(t) for t in controles["tickers"])
+    fundamentos, falhas_fund = fonte.carregar_fundamentos(selecionados)
+
+    tabela = montar_screener(controles, cotacoes, fundamentos, inicio, fim)
+    exibir_tabela(aplicar_filtros(tabela))
+    _listar_falhas(falhas_preco, falhas_fund)
 
 
 def _listar_falhas(falhas_preco: dict, falhas_fund: dict) -> None:

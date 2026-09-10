@@ -1,7 +1,6 @@
 """Calculos do Monitor B3.
 
-Etapa 1 cobre os indicadores exigidos pelo screener. Toda funcao devolve
-NaN quando faltam dados, nunca levanta excecao.
+Toda funcao devolve NaN quando faltam dados, nunca levanta excecao.
 
 Convencoes da especificacao:
 * Adj Close para retorno, volatilidade, beta e drawdown;
@@ -28,6 +27,9 @@ LINHAS = {
         "Net Income Continuous Operations",
     ],
     "receita": ["Total Revenue", "Operating Revenue"],
+    "lucro_bruto": ["Gross Profit"],
+    "imposto": ["Tax Provision", "Income Tax Expense Benefit"],
+    "lair": ["Pretax Income", "Income Before Tax", "EBT"],
     "ebitda": ["EBITDA", "Normalized EBITDA"],
     "ebit": ["EBIT", "Operating Income", "Total Operating Income As Reported"],
     "depreciacao": [
@@ -295,3 +297,157 @@ def roe(fundamentos: dict, t_ref) -> float:
     if pd.isna(medio) or medio <= 0:
         return np.nan
     return float(lucro / medio)
+
+
+def _capital_investido(balanco: pd.DataFrame) -> pd.Series:
+    """Patrimonio Liquido + Divida Bruta - Caixa, trimestre a trimestre."""
+    patrimonio = linha(balanco, "patrimonio")
+    if patrimonio.empty:
+        return pd.Series(dtype=float)
+
+    divida = linha(balanco, "divida_bruta")
+    if divida.empty:
+        divida = linha(balanco, "divida_longa").add(
+            linha(balanco, "divida_curta"), fill_value=0.0
+        )
+    caixa = linha(balanco, "caixa")
+
+    serie = patrimonio.add(divida, fill_value=0.0).sub(caixa, fill_value=0.0)
+    return serie.reindex(patrimonio.index).dropna().sort_index()
+
+
+def aliquota_efetiva(dre_trimestral: pd.DataFrame, t_ref) -> float:
+    """Imposto / LAIR do periodo, limitada a [0, 0.45] como manda a spec."""
+    imposto = soma_ltm(linha(dre_trimestral, "imposto"), t_ref)
+    lair = soma_ltm(linha(dre_trimestral, "lair"), t_ref)
+    if pd.isna(imposto) or pd.isna(lair) or lair <= 0:
+        return np.nan
+    return float(np.clip(imposto / lair, ALIQUOTA_MIN, ALIQUOTA_MAX))
+
+
+def roic(fundamentos: dict, t_ref) -> float:
+    """NOPAT sobre o capital investido medio dos 4 trimestres da janela."""
+    dre = fundamentos.get("trimestral_dre")
+    ebit = soma_ltm(linha(dre, "ebit"), t_ref)
+    aliquota = aliquota_efetiva(dre, t_ref)
+    if pd.isna(ebit) or pd.isna(aliquota):
+        return np.nan
+
+    capital = _ate(_capital_investido(fundamentos.get("trimestral_bp")), t_ref).tail(4)
+    if capital.empty:
+        return np.nan
+    medio = (
+        (capital.iloc[0] + capital.iloc[-1]) / 2 if len(capital) > 1 else capital.iloc[0]
+    )
+    if pd.isna(medio) or medio <= 0:
+        return np.nan
+    return float(ebit * (1 - aliquota) / medio)
+
+
+def cagr(serie_anual: pd.Series, t_inicio, t_fim) -> float:
+    """(Valor_fim / Valor_inicio)^(1/n) - 1 sobre os anuais mais proximos."""
+    serie = _serie(serie_anual)
+    if len(serie) < 2:
+        return np.nan
+
+    data_inicio = _data_mais_proxima(serie.index, t_inicio)
+    data_fim = _data_mais_proxima(serie.index, t_fim)
+    if data_inicio is None or data_fim is None or data_inicio >= data_fim:
+        return np.nan
+
+    inicial, final = serie[data_inicio], serie[data_fim]
+    anos = (data_fim - data_inicio).days / 365.25
+    if anos <= 0 or inicial <= 0 or final <= 0:
+        return np.nan
+    return float((final / inicial) ** (1 / anos) - 1)
+
+
+def _data_mais_proxima(indice: pd.DatetimeIndex, alvo):
+    if len(indice) == 0:
+        return None
+    alvo = pd.Timestamp(alvo)
+    return min(indice, key=lambda data: abs((data - alvo).days))
+
+
+def margens(fundamentos: dict, t_ref) -> dict[str, float]:
+    """Margem bruta, EBITDA e liquida, sempre sobre a receita LTM."""
+    dre = fundamentos.get("trimestral_dre")
+    receita = soma_ltm(linha(dre, "receita"), t_ref)
+    if pd.isna(receita) or receita <= 0:
+        return {"bruta": np.nan, "ebitda": np.nan, "liquida": np.nan}
+
+    bruto = soma_ltm(linha(dre, "lucro_bruto"), t_ref)
+    ebitda = _ebitda_ltm(dre, fundamentos.get("anual_dre"), t_ref)
+    liquido = _lucro_ltm(dre, fundamentos.get("anual_dre"), t_ref)
+    return {
+        "bruta": np.nan if pd.isna(bruto) else float(bruto / receita),
+        "ebitda": np.nan if pd.isna(ebitda) else float(ebitda / receita),
+        "liquida": np.nan if pd.isna(liquido) else float(liquido / receita),
+    }
+
+
+def divida_liquida_ebitda(fundamentos: dict, t_ref) -> float:
+    balanco = fundamentos.get("trimestral_bp")
+    divida = _divida_bruta(balanco, t_ref)
+    caixa = ultimo_valor(linha(balanco, "caixa"), t_ref)
+    ebitda = _ebitda_ltm(
+        fundamentos.get("trimestral_dre"), fundamentos.get("anual_dre"), t_ref
+    )
+    if pd.isna(divida) or pd.isna(ebitda) or ebitda <= 0:
+        return np.nan
+    if pd.isna(caixa):
+        caixa = 0.0
+    return float((divida - caixa) / ebitda)
+
+
+# ------------------------------------------------------------ series
+
+
+def retorno_total(precos_close, proventos: pd.Series, inicio, fim) -> float:
+    """(P_t - P_0 + D) / P_0. Ignora reinvestimento dos proventos."""
+    close = _serie(precos_close)
+    if close.empty:
+        return np.nan
+    p0 = close.asof(pd.Timestamp(inicio))
+    pt = close.asof(pd.Timestamp(fim))
+    if pd.isna(p0) or pd.isna(pt) or p0 == 0:
+        return np.nan
+
+    total = 0.0
+    if proventos is not None and len(proventos) > 0:
+        serie = pd.to_numeric(pd.Series(proventos), errors="coerce").dropna()
+        janela = serie[
+            (serie.index > pd.Timestamp(inicio)) & (serie.index <= pd.Timestamp(fim))
+        ]
+        total = float(janela.sum())
+    return float((pt - p0 + total) / p0)
+
+
+def media_movel(precos, janela: int) -> pd.Series:
+    serie = _serie(precos)
+    if len(serie) < janela:
+        return pd.Series(dtype=float)
+    return serie.rolling(janela).mean()
+
+
+def drawdown(precos) -> pd.Series:
+    """DD_t = P_t / max(P_0..P_t) - 1."""
+    serie = _serie(precos)
+    if serie.empty:
+        return pd.Series(dtype=float)
+    return serie / serie.cummax() - 1
+
+
+def drawdown_maximo(precos) -> float:
+    curva = drawdown(precos)
+    if curva.empty:
+        return np.nan
+    return float(curva.min())
+
+
+def volatilidade_movel(precos, janela: int = 21) -> pd.Series:
+    """Volatilidade anualizada em janela movel."""
+    retornos = retornos_log(precos)
+    if len(retornos) < janela:
+        return pd.Series(dtype=float)
+    return retornos.rolling(janela).std(ddof=1) * np.sqrt(DIAS_UTEIS_ANO)
