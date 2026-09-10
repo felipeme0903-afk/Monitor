@@ -1,7 +1,6 @@
 """Graficos Plotly do Monitor B3.
 
-O template ainda e claro. A Etapa 5 troca `TEMPLATE` e as cores por
-`theme.py`, sem mexer no resto do arquivo.
+As cores vem todas de `theme.py`, que e a fonte unica da identidade visual.
 """
 
 from __future__ import annotations
@@ -11,17 +10,30 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 import metrics as calc
+import theme
 
-TEMPLATE = "plotly_white"
-POSITIVO = "#00C087"
-NEGATIVO = "#F43F5E"
-ACENTO = "#3B82F6"
-SECUNDARIO = "#8B95A5"
-SMA_CURTA = "#F59E0B"
-SMA_LONGA = "#8B5CF6"
+TEMPLATE = theme.TEMPLATE_PLOTLY
+POSITIVO = theme.CORES["positivo"]
+NEGATIVO = theme.CORES["negativo"]
+ACENTO = theme.CORES["acento"]
+SECUNDARIO = theme.CORES["texto_secundario"]
+SMA_CURTA = theme.SMA_CURTA
+SMA_LONGA = theme.SMA_LONGA
+FUNDO = theme.CORES["fundo"]
+PALETA = theme.PALETA
 
 ALTURA_PRECO = 560
 ALTURA_AUXILIAR = 260
+
+
+def _fundo_transparente(fig: go.Figure) -> go.Figure:
+    """Deixa o grafico herdar o fundo do app em vez do cinza do template."""
+    fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color=theme.CORES["texto"]),
+    )
+    return fig
 
 
 def _sem_dados(mensagem: str) -> go.Figure:
@@ -35,7 +47,7 @@ def _sem_dados(mensagem: str) -> go.Figure:
         xaxis=dict(visible=False),
         yaxis=dict(visible=False),
     )
-    return figura
+    return _fundo_transparente(figura)
 
 
 def preco_com_medias(
@@ -127,7 +139,7 @@ def preco_com_medias(
     )
     figura.update_yaxes(title_text="Preco", row=1, col=1)
     _limitar_eixo(figura, intervalo, df)
-    return figura
+    return _fundo_transparente(figura)
 
 
 def _limitar_eixo(figura: go.Figure, intervalo, df: pd.DataFrame) -> None:
@@ -172,22 +184,7 @@ def curva_drawdown(precos, nome: str = "Drawdown") -> go.Figure:
         yaxis_title="Drawdown %",
         showlegend=False,
     )
-    return figura
-
-
-PALETA = [
-    "#3B82F6",
-    "#00C087",
-    "#F59E0B",
-    "#8B5CF6",
-    "#F43F5E",
-    "#06B6D4",
-    "#EC4899",
-    "#84CC16",
-    "#F97316",
-    "#14B8A6",
-    "#A855F7",
-]
+    return _fundo_transparente(figura)
 
 
 def linhas_base_100(series: dict[str, pd.Series], inicio, fim) -> go.Figure:
@@ -227,7 +224,7 @@ def linhas_base_100(series: dict[str, pd.Series], inicio, fim) -> go.Figure:
         yaxis_title="Base 100 no inicio da janela",
         legend=dict(orientation="h", yanchor="bottom", y=1.01, x=0),
     )
-    return figura
+    return _fundo_transparente(figura)
 
 
 def barras_horizontais(serie: pd.Series, titulo: str) -> go.Figure:
@@ -251,7 +248,7 @@ def barras_horizontais(serie: pd.Series, titulo: str) -> go.Figure:
         xaxis_title=titulo,
         showlegend=False,
     )
-    return figura
+    return _fundo_transparente(figura)
 
 
 def dispersao_setores(tabela: pd.DataFrame) -> go.Figure:
@@ -298,7 +295,7 @@ def dispersao_setores(tabela: pd.DataFrame) -> go.Figure:
         yaxis_title="Retorno no periodo %",
         showlegend=False,
     )
-    return figura
+    return _fundo_transparente(figura)
 
 
 def linhas_margens(tabela: pd.DataFrame) -> go.Figure:
@@ -326,7 +323,7 @@ def linhas_margens(tabela: pd.DataFrame) -> go.Figure:
         yaxis_title="Margem %",
         legend=dict(orientation="h", yanchor="bottom", y=1.01, x=0),
     )
-    return figura
+    return _fundo_transparente(figura)
 
 
 def barras_balanco(tabela: pd.DataFrame) -> go.Figure:
@@ -357,7 +354,7 @@ def barras_balanco(tabela: pd.DataFrame) -> go.Figure:
         yaxis_title=unidade,
         legend=dict(orientation="h", yanchor="bottom", y=1.01, x=0),
     )
-    return figura
+    return _fundo_transparente(figura)
 
 
 def serie_volatilidade(precos, janela: int = 21, intervalo=None) -> go.Figure:
@@ -389,4 +386,4 @@ def serie_volatilidade(precos, janela: int = 21, intervalo=None) -> go.Figure:
         yaxis_title=f"Volatilidade {janela}d anualizada %",
         showlegend=False,
     )
-    return figura
+    return _fundo_transparente(figura)

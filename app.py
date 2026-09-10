@@ -1,7 +1,7 @@
 """Monitor B3 - interface Streamlit.
 
-Abas prontas: 3 (screener do setor) e 4 (raio-X individual). As demais
-ficam sinalizadas ate as etapas seguintes.
+Cinco abas: panorama macro, setores lado a lado, screener do setor,
+raio-X individual e fundamentos.
 
 Rodar com:  streamlit run app.py
 """
@@ -17,9 +17,11 @@ import streamlit as st
 import charts as graf
 import data as fonte
 import metrics as calc
+import theme
 import universe as uni
 
 st.set_page_config(page_title="Monitor B3", page_icon="B3", layout="wide")
+theme.aplicar()
 
 JANELAS = {
     "1M": 30,
@@ -234,7 +236,7 @@ def kpis_do_topo(
     colunas = st.columns(5)
 
     ibov, var_ibov = variacao_diaria(cotacoes.get("^BVSP"), fim)
-    colunas[0].metric("Ibovespa", _texto(ibov, " pts"), _delta(_pct(var_ibov)))
+    colunas[0].metric("Ibovespa", _texto(ibov, " pts", casas=0), _delta(_pct(var_ibov)))
 
     dolar, var_dolar = variacao_diaria(cotacoes.get("BRL=X"), fim)
     colunas[1].metric("USD/BRL", _texto(dolar), _delta(_pct(var_dolar)))
@@ -526,10 +528,10 @@ def _cartoes_raio_x(
     )
 
 
-def _texto(valor, sufixo: str = "") -> str:
+def _texto(valor, sufixo: str = "", casas: int = 2) -> str:
     if valor is None or pd.isna(valor):
         return "n/d"
-    return f"{valor:,.2f}{sufixo}"
+    return f"{valor:,.{casas}f}{sufixo}"
 
 
 # ----------------------------------------------------------- fundamentos
@@ -708,4 +710,12 @@ def _listar_falhas(falhas_preco: dict, falhas_fund: dict) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as erro:  # rede, Yahoo instavel, formato inesperado
+        st.error(
+            "O app encontrou um erro inesperado e parou de desenhar esta pagina. "
+            "Clique em Atualizar dados na barra lateral para recarregar."
+        )
+        with st.expander("Detalhes tecnicos"):
+            st.exception(erro)

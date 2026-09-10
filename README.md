@@ -5,7 +5,7 @@ GICS, além de índices globais, juros, commodities e câmbio. Todos os dados v�
 do Yahoo Finance e da API SGS do Banco Central. Não há chamada a modelos de IA:
 o pipeline é determinístico e não exige nenhuma chave de API.
 
-## Estado atual: Etapa 4 de 5
+## Estado atual: as cinco etapas estão concluídas
 
 | Etapa | Escopo | Situação |
 |-------|--------|----------|
@@ -13,7 +13,20 @@ o pipeline é determinístico e não exige nenhuma chave de API.
 | 2 | `metrics.py` completo, `charts.py` e Aba 4 (raio-X individual) | Concluída |
 | 3 | Aba 5 (fundamentos) com cache em disco | Concluída |
 | 4 | Abas 1 e 2 e KPIs do topo | Concluída |
-| 5 | `theme.py`, revisão de erros e README final | Pendente |
+| 5 | `theme.py`, revisão de erros e README final | Concluída |
+
+## O que o app mostra
+
+No topo, cinco indicadores do dia: Ibovespa, dólar, Selic meta e a maior alta e
+a maior baixa do setor selecionado. Abaixo, cinco abas.
+
+| Aba | Conteúdo |
+|-----|----------|
+| Panorama Macro | Índices, juros, commodities e câmbio com retorno de 1 dia, 1 mês e no ano, mais um comparativo normalizado em base 100 |
+| Setores | Os 11 setores lado a lado, barras ordenadas por retorno e uma dispersão de P/L mediano contra retorno com bolha proporcional ao Market Cap |
+| Screener | Todas as ações do setor com risco, múltiplos e filtros de P/L, volatilidade e Dividend Yield |
+| Raio-X | Uma ação, índice ou commodity com candlestick, médias móveis, volume, drawdown e volatilidade |
+| Fundamentos | Margens por trimestre, dívida, caixa e patrimônio, e a tabela de proventos |
 
 ## Como rodar localmente
 
@@ -46,8 +59,13 @@ cache.
 | `universe.py` | Dicionário de setores, tickers, ativos macro e códigos do Banco Central |
 | `data.py` | Download em lote, cache de sessão e cache em disco dos demonstrativos |
 | `metrics.py` | Cálculo de retorno, volatilidade, beta, múltiplos e rentabilidade |
-| `charts.py` | Gráficos Plotly de preço, drawdown e volatilidade |
+| `charts.py` | Gráficos Plotly de preço, drawdown, volatilidade, margens e setores |
+| `theme.py` | Paleta, tipografia e o CSS do tema escuro |
 | `app.py` | Interface, barra lateral e abas |
+
+O tema fica em dois lugares que se completam. O `.streamlit/config.toml` define
+as cores que o Streamlit aplica antes de a página carregar. O `theme.py` injeta
+o CSS do resto e é a fonte única da paleta, de onde `charts.py` importa.
 
 ## Premissas de cálculo
 
@@ -123,6 +141,18 @@ ele. Juros brasileiros não existem no Yahoo Finance e vêm do Banco Central.
 Ticker sem dados, balanço ausente, coluna inexistente e divisão por zero
 resultam em `NaN`, exibido como `n/d`. Nenhuma dessas situações derruba o app.
 Os tickers que falharam aparecem agrupados num único aviso ao pé da tabela.
+
+Em detalhe:
+
+- O download em lote devolve os motivos de falha por ticker em vez de levantar
+  exceção, e a queda da rede inteira vira uma mensagem única na tela.
+- A API do Banco Central devolve série vazia quando falha, e a Selic aparece
+  como `n/d`.
+- Um Parquet corrompido faz o cache voltar à origem em vez de quebrar.
+- Colunas de demonstrativo que a empresa não publica somem do gráfico. É o caso
+  de lucro bruto e EBITDA em bancos.
+- O `app.py` tem um último cerco em volta da página inteira, que mostra o erro
+  numa caixa em vez de deixar o traceback na tela.
 
 ## Cache
 
