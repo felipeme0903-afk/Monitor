@@ -17,7 +17,7 @@ SETORES: dict[str, dict[str, str]] = {
         "BMOB3": "Bemobi",
         # BDRs opcionais: nao sao acoes locais, mas dao exposicao ao setor.
         "ROXO34": "Nu Holdings (BDR)",
-        "STOC31": "StoneCo (BDR)",
+        "STOC34": "StoneCo (BDR, ex-STOC31)",
         "PAGS34": "PagSeguro (BDR)",
     },
     "Financeiro": {
@@ -33,11 +33,11 @@ SETORES: dict[str, dict[str, str]] = {
     },
     "Bens Industriais": {
         "WEGE3": "WEG",
-        "EMBR3": "Embraer",
+        "EMBJ3": "Embraer (ex-EMBR3)",
         "RAIL3": "Rumo",
         "MOTV3": "Motiva (ex-CCRO3)",
         "ECOR3": "EcoRodovias",
-        "STBP3": "Santos Brasil",  # conferir se segue listada apos a OPA
+        # STBP3 saiu: Santos Brasil deixou de ter serie no Yahoo apos a OPA.
         "POMO4": "Marcopolo",
     },
     "Saude": {
@@ -61,7 +61,7 @@ SETORES: dict[str, dict[str, str]] = {
         "VIVT3": "Telefonica Brasil",
         "TIMS3": "TIM",
         "DESK3": "Desktop",
-        "BRIT3": "Brisanet",
+        "BRST3": "Brisanet (ex-BRIT3)",
     },
     "Energia": {
         "PETR4": "Petrobras",
@@ -76,9 +76,9 @@ SETORES: dict[str, dict[str, str]] = {
         "ABEV3": "Ambev",
         "ASAI3": "Assai",
         "PCAR3": "Grupo Pao de Acucar",
-        "JBSS3": "JBS",
-        "BRFS3": "BRF",
-        "MRFG3": "Marfrig",
+        "JBSS32": "JBS N.V. (DR, ex-JBSS3)",
+        # BRF e Marfrig se fundiram: MBRF3 e o unico ticker sobrevivente.
+        "MBRF3": "Marfrig Global Foods (ex-BRFS3 e MRFG3)",
         "MDIA3": "M. Dias Branco",
         "SLCE3": "SLC Agricola",
         "AGRO3": "BrasilAgro",
@@ -107,14 +107,14 @@ SETORES: dict[str, dict[str, str]] = {
         "SBSP3": "Sabesp",
         "CSMG3": "Copasa",
         "SAPR11": "Sanepar",
-        "ELET3": "Eletrobras",
+        # ELET3 saiu: o Yahoo nao devolve mais serie para Eletrobras.
         "EQTL3": "Equatorial",
         "CPFE3": "CPFL Energia",
         "EGIE3": "Engie Brasil",
         "TAEE11": "Taesa",
         "ENEV3": "Eneva",
         "CMIG4": "Cemig",
-        "CPLE6": "Copel",
+        "CPLE3": "Copel (ex-CPLE6)",
     },
 }
 

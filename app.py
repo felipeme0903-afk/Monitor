@@ -211,6 +211,228 @@ def exibir_tabela(tabela: pd.DataFrame) -> None:
     st.dataframe(estilo, width="stretch", hide_index=True)
 
 
+# ------------------------------------------------------------ kpis do topo
+
+
+def variacao_diaria(df: pd.DataFrame, fim: pd.Timestamp) -> tuple[float, float]:
+    """(ultimo fechamento, variacao contra o pregao anterior)."""
+    if df is None or "Close" not in df.columns:
+        return np.nan, np.nan
+    serie = pd.to_numeric(df["Close"], errors="coerce").dropna()
+    serie = serie[serie.index <= pd.Timestamp(fim)]
+    if len(serie) < 2:
+        return (float(serie.iloc[-1]) if len(serie) == 1 else np.nan), np.nan
+    atual, anterior = float(serie.iloc[-1]), float(serie.iloc[-2])
+    if anterior == 0:
+        return atual, np.nan
+    return atual, atual / anterior - 1
+
+
+def kpis_do_topo(
+    controles: dict, cotacoes: dict[str, pd.DataFrame], fim: pd.Timestamp
+) -> None:
+    colunas = st.columns(5)
+
+    ibov, var_ibov = variacao_diaria(cotacoes.get("^BVSP"), fim)
+    colunas[0].metric("Ibovespa", _texto(ibov, " pts"), _delta(_pct(var_ibov)))
+
+    dolar, var_dolar = variacao_diaria(cotacoes.get("BRL=X"), fim)
+    colunas[1].metric("USD/BRL", _texto(dolar), _delta(_pct(var_dolar)))
+
+    selic = fonte.selic_meta()
+    colunas[2].metric("Selic meta", _texto(selic, "%"))
+
+    movimentos = {}
+    for ticker in uni.tickers_do_setor(controles["setor"]):
+        _, variacao = variacao_diaria(cotacoes.get(uni.para_yahoo(ticker)), fim)
+        if not pd.isna(variacao):
+            movimentos[ticker] = variacao
+
+    if movimentos:
+        alta = max(movimentos, key=movimentos.get)
+        baixa = min(movimentos, key=movimentos.get)
+        colunas[3].metric(f"Maior alta - {alta}", _delta(_pct(movimentos[alta])))
+        colunas[4].metric(f"Maior baixa - {baixa}", _delta(_pct(movimentos[baixa])))
+    else:
+        colunas[3].metric("Maior alta", "n/d")
+        colunas[4].metric("Maior baixa", "n/d")
+
+    st.caption(f"Maior alta e maior baixa do pregao dentro do setor {controles['setor']}.")
+
+
+def _delta(valor) -> str | None:
+    if valor is None or pd.isna(valor):
+        return None
+    return f"{valor:,.2f}%"
+
+
+# ------------------------------------------------------------ panorama macro
+
+
+def aba_macro(
+    cotacoes: dict[str, pd.DataFrame], inicio: pd.Timestamp, fim: pd.Timestamp
+) -> None:
+    primeiro_do_ano = pd.Timestamp(year=fim.year, month=1, day=1)
+
+    linhas = []
+    for classe, grupo in uni.MACRO.items():
+        for ticker, nome in grupo.items():
+            df = cotacoes.get(ticker)
+            if df is None:
+                continue
+            fechamento, variacao = variacao_diaria(df, fim)
+            adj = df["Adj Close"]
+            linhas.append(
+                {
+                    "Classe": classe,
+                    "Ativo": nome,
+                    "Ticker": ticker,
+                    "Ultimo": fechamento,
+                    "Retorno 1D %": _pct(variacao),
+                    "Retorno 1M %": _pct(
+                        calc.retorno_periodo(adj, fim - pd.Timedelta(days=30), fim)
+                    ),
+                    "YTD %": _pct(calc.retorno_periodo(adj, primeiro_do_ano, fim)),
+                    "Volatilidade 30D %": _pct(calc.volatilidade_anualizada(adj, 30, fim)),
+                }
+            )
+
+    if not linhas:
+        st.warning("Nenhum ativo macro foi baixado.")
+        return
+
+    tabela = pd.DataFrame(linhas)
+    numericas = ["Ultimo", "Retorno 1D %", "Retorno 1M %", "YTD %", "Volatilidade 30D %"]
+    estilo = (
+        tabela.style.format({coluna: "{:,.2f}" for coluna in numericas}, na_rep="n/d")
+        .map(_cor_do_sinal, subset=["Retorno 1D %", "Retorno 1M %", "YTD %"])
+    )
+    st.dataframe(estilo, width="stretch", hide_index=True)
+
+    st.divider()
+    rotulos = {f"{linha['Ativo']} ({linha['Classe']})": linha["Ticker"] for linha in linhas}
+    padrao = [nome for nome in rotulos if "Indices" in nome][:4]
+    escolhidos = st.multiselect(
+        "Comparar em base 100", list(rotulos), default=padrao or list(rotulos)[:4]
+    )
+
+    series = {
+        nome: cotacoes[rotulos[nome]]["Adj Close"]
+        for nome in escolhidos
+        if rotulos[nome] in cotacoes
+    }
+    st.plotly_chart(graf.linhas_base_100(series, inicio, fim), width="stretch")
+
+
+# ----------------------------------------------------------- setores
+
+
+def resumo_setorial(
+    controles: dict,
+    cotacoes: dict[str, pd.DataFrame],
+    fundamentos: dict[str, dict],
+    inicio: pd.Timestamp,
+    fim: pd.Timestamp,
+) -> pd.DataFrame:
+    """Uma linha por setor. Medias para risco, medianas para multiplos."""
+    bench_df = cotacoes.get(controles["benchmark"])
+    bench = bench_df["Adj Close"] if bench_df is not None else pd.Series(dtype=float)
+    observacoes = calc.SEMANAS_BETA_2A if controles["periodicidade"] == "Semanal" else 504
+
+    linhas = []
+    for setor in uni.setores():
+        retornos, volatilidades, betas, precos_lucro, yields, capital = [], [], [], [], [], []
+
+        for ticker in uni.tickers_do_setor(setor):
+            chave = uni.para_yahoo(ticker)
+            df = cotacoes.get(chave)
+            if df is None:
+                continue
+            adj, close = df["Adj Close"], df["Close"]
+            fund = fundamentos.get(chave, {})
+
+            retornos.append(calc.retorno_periodo(adj, inicio, fim))
+            volatilidades.append(calc.volatilidade_anualizada(adj, 252, fim))
+            betas.append(
+                calc.beta(adj, bench, controles["periodicidade"], observacoes, fim)
+            )
+            precos_lucro.append(calc.preco_lucro(fund, fim))
+            yields.append(calc.dividend_yield_ltm(fonte.proventos(df), close, fim))
+            if fund.get("market_cap"):
+                capital.append(float(fund["market_cap"]))
+
+        if not retornos:
+            continue
+        linhas.append(
+            {
+                "Setor": setor,
+                "Retorno periodo %": _pct(_media(retornos)),
+                "Volatilidade media %": _pct(_media(volatilidades)),
+                "Beta medio": _media(betas),
+                "P/L mediano": _mediana(precos_lucro),
+                "DY mediano %": _pct(_mediana(yields)),
+                "Market Cap total": float(sum(capital)) if capital else np.nan,
+                "Acoes": len(retornos),
+            }
+        )
+
+    return pd.DataFrame(linhas)
+
+
+def _media(valores) -> float:
+    serie = pd.Series(valores, dtype=float).dropna()
+    return float(serie.mean()) if not serie.empty else np.nan
+
+
+def _mediana(valores) -> float:
+    serie = pd.Series(valores, dtype=float).dropna()
+    return float(serie.median()) if not serie.empty else np.nan
+
+
+def aba_setores(
+    controles: dict,
+    cotacoes: dict[str, pd.DataFrame],
+    fundamentos: dict[str, dict],
+    inicio: pd.Timestamp,
+    fim: pd.Timestamp,
+) -> None:
+    tabela = resumo_setorial(controles, cotacoes, fundamentos, inicio, fim)
+    if tabela.empty:
+        st.warning("Nao foi possivel consolidar nenhum setor.")
+        return
+
+    visivel = tabela.drop(columns=["Market Cap total"]).assign(
+        **{"Market Cap total (R$ bi)": tabela["Market Cap total"] / 1e9}
+    )
+    numericas = [
+        "Retorno periodo %",
+        "Volatilidade media %",
+        "Beta medio",
+        "P/L mediano",
+        "DY mediano %",
+        "Market Cap total (R$ bi)",
+    ]
+    estilo = (
+        visivel.style.format({coluna: "{:,.2f}" for coluna in numericas}, na_rep="n/d")
+        .map(_cor_do_sinal, subset=["Retorno periodo %"])
+    )
+    st.dataframe(estilo, width="stretch", hide_index=True)
+    st.caption(
+        "Retorno, volatilidade e beta sao medias simples das acoes do setor. "
+        "P/L e DY sao medianas, que ignoram n/d e P/L negativo."
+    )
+
+    st.divider()
+    ordenado = tabela.set_index("Setor")["Retorno periodo %"]
+    st.plotly_chart(
+        graf.barras_horizontais(ordenado, "Retorno no periodo %"), width="stretch"
+    )
+
+    st.divider()
+    st.caption("Cada bolha e um setor. O tamanho e o Market Cap somado das acoes.")
+    st.plotly_chart(graf.dispersao_setores(tabela), width="stretch")
+
+
 # ---------------------------------------------------------------- raio-x
 
 
@@ -392,9 +614,14 @@ def _tabela_proventos(
 def main() -> None:
     controles = barra_lateral()
 
-    do_setor = [uni.para_yahoo(t) for t in uni.tickers_do_setor(controles["setor"])]
-    alvo = tuple(dict.fromkeys(do_setor + [controles["benchmark"]]))
-
+    # Um unico lote cobre as cinco abas: acoes, macro e benchmark.
+    alvo = tuple(
+        dict.fromkeys(
+            [uni.para_yahoo(t) for t in uni.todos_tickers_b3()]
+            + uni.tickers_macro()
+            + [controles["benchmark"]]
+        )
+    )
     cotacoes, falhas_preco = fonte.baixar_cotacoes(alvo)
     if not cotacoes:
         st.error(
@@ -413,10 +640,26 @@ def main() -> None:
         f"beta {controles['periodicidade'].lower()} | ultimo pregao {ultimo_pregao:%d/%m/%Y}"
     )
 
+    kpis_do_topo(controles, cotacoes, ultimo_pregao)
+    st.divider()
+
     abas = st.tabs(["Panorama Macro", "Setores", "Screener", "Raio-X", "Fundamentos"])
-    for indice in (0, 1):
-        with abas[indice]:
-            st.info("Aba prevista para a Etapa 4 da implementacao.")
+
+    with abas[0]:
+        aba_macro(cotacoes, inicio, fim)
+
+    with abas[1]:
+        st.caption(
+            "A primeira consolidacao dos 11 setores baixa os demonstrativos de "
+            "todas as acoes e demora alguns minutos. Depois disso o cache em "
+            "disco responde na hora por 24 horas."
+        )
+        todas = tuple(uni.para_yahoo(t) for t in uni.todos_tickers_b3())
+        fundamentos_todos, falhas_todos = fonte.carregar_fundamentos(todas)
+        aba_setores(controles, cotacoes, fundamentos_todos, inicio, fim)
+        if falhas_todos:
+            with st.expander(f"{len(falhas_todos)} acao(oes) sem demonstrativos"):
+                st.write(sorted(uni.de_yahoo(t) for t in falhas_todos))
 
     with abas[2]:
         aba_screener(controles, cotacoes, falhas_preco, inicio, fim)

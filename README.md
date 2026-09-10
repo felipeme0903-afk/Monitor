@@ -5,14 +5,14 @@ GICS, além de índices globais, juros, commodities e câmbio. Todos os dados v�
 do Yahoo Finance e da API SGS do Banco Central. Não há chamada a modelos de IA:
 o pipeline é determinístico e não exige nenhuma chave de API.
 
-## Estado atual: Etapa 3 de 5
+## Estado atual: Etapa 4 de 5
 
 | Etapa | Escopo | Situação |
 |-------|--------|----------|
 | 1 | `universe.py`, `data.py`, barra lateral e Aba 3 (screener) | Concluída |
 | 2 | `metrics.py` completo, `charts.py` e Aba 4 (raio-X individual) | Concluída |
 | 3 | Aba 5 (fundamentos) com cache em disco | Concluída |
-| 4 | Abas 1 e 2 e KPIs do topo | Pendente |
+| 4 | Abas 1 e 2 e KPIs do topo | Concluída |
 | 5 | `theme.py`, revisão de erros e README final | Pendente |
 
 ## Como rodar localmente
@@ -86,6 +86,25 @@ cache.
   gráfico, o que acontece com bancos, que não reportam lucro bruto nem EBITDA.
 - **Proventos**: apenas data ex e valor por ação. O Yahoo não informa Data Com e
   não separa dividendo de juros sobre capital próprio.
+- **Consolidado por setor**: retorno, volatilidade e beta são médias simples das
+  ações do setor. P/L e Dividend Yield são medianas, que descartam os n/d e, no
+  caso do P/L, também as empresas com lucro não positivo.
+
+## Tickers revisados
+
+A B3 muda tickers por fusão, incorporação e oferta pública de aquisição. Estes
+foram corrigidos depois de conferir a série no Yahoo Finance:
+
+| Antes | Agora | Motivo |
+|-------|-------|--------|
+| EMBR3 | EMBJ3 | Embraer renomeou o papel |
+| CPLE6 | CPLE3 | Copel unificou as classes |
+| BRIT3 | BRST3 | Brisanet renomeou o papel |
+| STOC31 | STOC34 | Novo código do BDR da StoneCo |
+| JBSS3 | JBSS32 | JBS virou JBS N.V. e passou a negociar como DR |
+| BRFS3 e MRFG3 | MBRF3 | BRF e Marfrig se fundiram num único papel |
+| ELET3 | removido | O Yahoo não devolve mais série para Eletrobras |
+| STBP3 | removido | Santos Brasil saiu de negociação após a OPA |
 
 ## Fontes de dados
 

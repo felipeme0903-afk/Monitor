@@ -74,7 +74,9 @@ def retornos_log(precos) -> pd.Series:
     serie = _serie(precos)
     if len(serie) < 2:
         return pd.Series(dtype=float)
-    return np.log(serie / serie.shift(1)).replace([np.inf, -np.inf], np.nan).dropna()
+    # Preco zerado ou negativo vira NaN antes do log, senao o numpy avisa.
+    razao = (serie / serie.shift(1)).replace([np.inf, -np.inf], np.nan)
+    return np.log(razao.where(razao > 0)).dropna()
 
 
 # --------------------------------------------------------------- retornos

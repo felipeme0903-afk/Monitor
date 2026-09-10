@@ -175,6 +175,132 @@ def curva_drawdown(precos, nome: str = "Drawdown") -> go.Figure:
     return figura
 
 
+PALETA = [
+    "#3B82F6",
+    "#00C087",
+    "#F59E0B",
+    "#8B5CF6",
+    "#F43F5E",
+    "#06B6D4",
+    "#EC4899",
+    "#84CC16",
+    "#F97316",
+    "#14B8A6",
+    "#A855F7",
+]
+
+
+def linhas_base_100(series: dict[str, pd.Series], inicio, fim) -> go.Figure:
+    """Comparativo normalizado em 100 no primeiro pregao da janela."""
+    if not series:
+        return _sem_dados("Escolha ao menos um ativo para comparar.")
+
+    figura = go.Figure()
+    tracadas = 0
+    for posicao, (nome, serie) in enumerate(series.items()):
+        janela = pd.to_numeric(pd.Series(serie), errors="coerce").dropna()
+        janela = janela[
+            (janela.index >= pd.Timestamp(inicio)) & (janela.index <= pd.Timestamp(fim))
+        ]
+        if janela.empty or janela.iloc[0] == 0:
+            continue
+        figura.add_trace(
+            go.Scatter(
+                x=janela.index,
+                y=janela / janela.iloc[0] * 100,
+                name=nome,
+                mode="lines",
+                line=dict(color=PALETA[posicao % len(PALETA)], width=1.6),
+            )
+        )
+        tracadas += 1
+
+    if tracadas == 0:
+        return _sem_dados("Nenhum ativo tem serie dentro da janela escolhida.")
+
+    figura.add_hline(y=100, line_dash="dot", line_color=SECUNDARIO, opacity=0.6)
+    figura.update_layout(
+        template=TEMPLATE,
+        height=460,
+        margin=dict(l=10, r=10, t=30, b=10),
+        hovermode="x unified",
+        yaxis_title="Base 100 no inicio da janela",
+        legend=dict(orientation="h", yanchor="bottom", y=1.01, x=0),
+    )
+    return figura
+
+
+def barras_horizontais(serie: pd.Series, titulo: str) -> go.Figure:
+    """Barras ordenadas, verdes acima de zero e vermelhas abaixo."""
+    dados = pd.to_numeric(pd.Series(serie), errors="coerce").dropna().sort_values()
+    if dados.empty:
+        return _sem_dados("Sem dados para ordenar.")
+
+    figura = go.Figure(
+        go.Bar(
+            x=dados.to_numpy(),
+            y=list(dados.index),
+            orientation="h",
+            marker_color=[POSITIVO if valor >= 0 else NEGATIVO for valor in dados],
+        )
+    )
+    figura.update_layout(
+        template=TEMPLATE,
+        height=max(320, 34 * len(dados)),
+        margin=dict(l=10, r=10, t=30, b=10),
+        xaxis_title=titulo,
+        showlegend=False,
+    )
+    return figura
+
+
+def dispersao_setores(tabela: pd.DataFrame) -> go.Figure:
+    """P/L mediano contra retorno, bolha proporcional ao Market Cap somado."""
+    if tabela is None or tabela.empty:
+        return _sem_dados("Sem setores com P/L e retorno para cruzar.")
+
+    dados = tabela.dropna(subset=["P/L mediano", "Retorno periodo %"])
+    if dados.empty:
+        return _sem_dados("Nenhum setor tem P/L mediano disponivel.")
+
+    capital = pd.to_numeric(dados["Market Cap total"], errors="coerce").fillna(0.0)
+    maximo = float(capital.max()) or 1.0
+    tamanhos = 14 + 46 * (capital / maximo)
+
+    figura = go.Figure(
+        go.Scatter(
+            x=dados["P/L mediano"],
+            y=dados["Retorno periodo %"],
+            mode="markers+text",
+            text=dados["Setor"],
+            textposition="top center",
+            textfont=dict(size=10, color=SECUNDARIO),
+            marker=dict(
+                size=tamanhos,
+                color=PALETA[: len(dados)],
+                opacity=0.75,
+                line=dict(width=1, color="rgba(0,0,0,0.25)"),
+            ),
+            customdata=(capital / 1e9).round(1),
+            hovertemplate=(
+                "<b>%{text}</b><br>P/L mediano: %{x:.1f}"
+                "<br>Retorno: %{y:.2f}%"
+                "<br>Market Cap: R$ %{customdata} bi<extra></extra>"
+            ),
+        )
+    )
+    figura.add_hline(y=0, line_dash="dot", line_color=SECUNDARIO, opacity=0.6)
+    figura.update_layout(
+        template=TEMPLATE,
+        height=480,
+        margin=dict(l=10, r=10, t=40, b=10),
+        xaxis_title="P/L mediano",
+        yaxis_title="Retorno no periodo %",
+        showlegend=False,
+    )
+    return figura
+
+
 def linhas_margens(tabela: pd.DataFrame) -> go.Figure:
     """Margem bruta, EBITDA e liquida por trimestre."""
     if tabela is None or tabela.empty:
