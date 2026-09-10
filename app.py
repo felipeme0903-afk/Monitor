@@ -80,7 +80,7 @@ def barra_lateral() -> dict:
     )
 
     st.sidebar.divider()
-    if st.sidebar.button("Atualizar dados", use_container_width=True):
+    if st.sidebar.button("Atualizar dados", width="stretch"):
         st.cache_data.clear()
         apagados = fonte.limpar_cache_de_disco()
         st.sidebar.success(f"Cache limpo ({apagados} arquivos em disco).")
@@ -207,7 +207,7 @@ def exibir_tabela(tabela: pd.DataFrame) -> None:
         tabela.style.format(duas_casas, na_rep="n/d")
         .map(_cor_do_sinal, subset=["Retorno periodo %", "DY LTM %", "ROE %"])
     )
-    st.dataframe(estilo, use_container_width=True, hide_index=True)
+    st.dataframe(estilo, width="stretch", hide_index=True)
 
 
 # -------------------------------------------------------------------- main
@@ -271,7 +271,7 @@ def _listar_falhas(falhas_preco: dict, falhas_fund: dict) -> None:
             {"Ticker": uni.de_yahoo(t), "Origem": "Demonstrativos", "Motivo": motivo}
             for t, motivo in sorted(falhas_fund.items())
         ]
-        st.dataframe(pd.DataFrame(registros), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(registros), width="stretch", hide_index=True)
 
 
 if __name__ == "__main__":
