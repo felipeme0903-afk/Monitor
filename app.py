@@ -42,7 +42,7 @@ COLUNAS_SCREENER = [
     "Retorno periodo %",
     "Volatilidade 252d %",
     "Beta 2A",
-    "D/E",
+    "Market Equity/Debt",
     "P/L LTM",
     "EV/EBITDA",
     "P/VP",
@@ -150,7 +150,7 @@ def montar_screener(
                 "Retorno periodo %": _pct(calc.retorno_periodo(adj, inicio, fim)),
                 "Volatilidade 252d %": _pct(calc.volatilidade_anualizada(adj, 252, fim)),
                 "Beta 2A": calc.beta(adj, bench_adj, controles["periodicidade"], observacoes, fim),
-                "D/E": calc.divida_patrimonio(fund, fim),
+                "Market Equity/Debt": calc.market_equity_divida(fund, fim),
                 "P/L LTM": calc.preco_lucro(fund, fim),
                 "EV/EBITDA": calc.ev_ebitda(fund, fim),
                 "P/VP": calc.preco_valor_patrimonial(fund, fim),
@@ -341,6 +341,7 @@ def resumo_setorial(
     linhas = []
     for setor in uni.setores():
         retornos, volatilidades, betas, precos_lucro, yields, capital = [], [], [], [], [], []
+        equity_divida = []
 
         for ticker in uni.tickers_do_setor(setor):
             chave = uni.para_yahoo(ticker)
@@ -357,6 +358,7 @@ def resumo_setorial(
             )
             precos_lucro.append(calc.preco_lucro(fund, fim))
             yields.append(calc.dividend_yield_ltm(fonte.proventos(df), close, fim))
+            equity_divida.append(calc.market_equity_divida(fund, fim))
             if fund.get("market_cap"):
                 capital.append(float(fund["market_cap"]))
 
@@ -370,6 +372,7 @@ def resumo_setorial(
                 "Beta medio": _media(betas),
                 "P/L mediano": _mediana(precos_lucro),
                 "DY mediano %": _pct(_mediana(yields)),
+                "Market Equity/Debt mediano": _mediana(equity_divida),
                 "Market Cap total": float(sum(capital)) if capital else np.nan,
                 "Acoes": len(retornos),
             }
@@ -409,6 +412,7 @@ def aba_setores(
         "Beta medio",
         "P/L mediano",
         "DY mediano %",
+        "Market Equity/Debt mediano",
         "Market Cap total (R$ bi)",
     ]
     estilo = (
@@ -418,7 +422,7 @@ def aba_setores(
     st.dataframe(estilo, width="stretch", hide_index=True)
     st.caption(
         "Retorno, volatilidade e beta sao medias simples das acoes do setor. "
-        "P/L e DY sao medianas, que ignoram n/d e P/L negativo."
+        "P/L, DY e Market Equity/Debt sao medianas, que ignoram n/d e P/L negativo."
     )
 
     st.divider()
