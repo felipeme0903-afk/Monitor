@@ -42,8 +42,7 @@ COLUNAS_SCREENER = [
     "Retorno periodo %",
     "Volatilidade 252d %",
     "Beta 2A",
-    "Dist. minima 52s %",
-    "Dist. maxima 52s %",
+    "D/E",
     "P/L LTM",
     "EV/EBITDA",
     "P/VP",
@@ -142,7 +141,6 @@ def montar_screener(
 
         adj, close = df["Adj Close"], df["Close"]
         fund = fundamentos.get(chave, {})
-        da_minima, da_maxima = calc.distancia_52_semanas(close, fim)
 
         linhas.append(
             {
@@ -152,8 +150,7 @@ def montar_screener(
                 "Retorno periodo %": _pct(calc.retorno_periodo(adj, inicio, fim)),
                 "Volatilidade 252d %": _pct(calc.volatilidade_anualizada(adj, 252, fim)),
                 "Beta 2A": calc.beta(adj, bench_adj, controles["periodicidade"], observacoes, fim),
-                "Dist. minima 52s %": _pct(da_minima),
-                "Dist. maxima 52s %": _pct(da_maxima),
+                "D/E": calc.divida_patrimonio(fund, fim),
                 "P/L LTM": calc.preco_lucro(fund, fim),
                 "EV/EBITDA": calc.ev_ebitda(fund, fim),
                 "P/VP": calc.preco_valor_patrimonial(fund, fim),

@@ -79,6 +79,9 @@ o CSS do resto e é a fonte única da paleta, de onde `charts.py` importa.
   sexta-feira. A opção diária usa 504 observações. O benchmark padrão é o
   Ibovespa.
 - **Distância de 52 semanas**: calculada sobre os últimos 252 pregões.
+- **D/E (Dívida/Patrimônio)**: dívida bruta do último balanço trimestral
+  dividida pelo patrimônio líquido da mesma data. Usa o balanço anual quando o
+  trimestral não traz as duas linhas. Fica n/d quando o patrimônio não é positivo.
 - **Dividend Yield LTM**: soma dos proventos nos 365 dias anteriores à data de
   referência, dividida pelo `Close` naquela data.
 - **P/L e EV/EBITDA**: lucro e EBITDA somados dos quatro últimos trimestres

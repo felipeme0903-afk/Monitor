@@ -280,6 +280,20 @@ def preco_valor_patrimonial(fundamentos: dict, t_ref) -> float:
     return float(market_cap / patrimonio)
 
 
+def divida_patrimonio(fundamentos: dict, t_ref) -> float:
+    """D/E: Divida Bruta / Patrimonio Liquido. NaN quando o PL nao e positivo."""
+    balanco = fundamentos.get("trimestral_bp")
+    divida = _divida_bruta(balanco, t_ref)
+    patrimonio = ultimo_valor(linha(balanco, "patrimonio"), t_ref)
+    if pd.isna(divida) or pd.isna(patrimonio):
+        anual = fundamentos.get("anual_bp")
+        divida = _divida_bruta(anual, t_ref)
+        patrimonio = ultimo_valor(linha(anual, "patrimonio"), t_ref)
+    if pd.isna(divida) or pd.isna(patrimonio) or patrimonio <= 0:
+        return np.nan
+    return float(divida / patrimonio)
+
+
 def roe(fundamentos: dict, t_ref) -> float:
     """Lucro LTM sobre o patrimonio medio dos 4 trimestres da janela."""
     lucro = _lucro_ltm(
