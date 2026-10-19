@@ -653,7 +653,7 @@ def main() -> None:
 
     with abas[1]:
         st.caption(
-            "A primeira consolidacao dos 11 setores baixa os demonstrativos de "
+            "A primeira consolidacao dos 10 setores baixa os demonstrativos de "
             "todas as acoes e demora alguns minutos. Depois disso o cache em "
             "disco responde na hora por 24 horas."
         )
