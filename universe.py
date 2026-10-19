@@ -11,6 +11,7 @@ SUFIXO_B3 = ".SA"
 # {setor da B3: {ticker: nome de exibicao}}
 # Classificacao setorial da B3, so com acoes locais. BDRs ficaram de fora:
 # o Yahoo nao entrega market cap nem multiplos confiaveis para eles.
+# NEOE3, NGRD3 e ODPV3 sairam: o Yahoo nao devolve mais serie de cotacoes.
 SETORES: dict[str, dict[str, str]] = {
     "Bens Industriais": {
         "WEGE3": "WEG",
@@ -97,7 +98,6 @@ SETORES: dict[str, dict[str, str]] = {
         "RADL3": "RD Saude",
         "FLRY3": "Fleury",
         "HYPE3": "Hypera Pharma",
-        "ODPV3": "OdontoPrev",
         "MATD3": "Mater Dei",
         "BLAU3": "Blau Farmaceutica",
         "PGMN3": "Pague Menos",
@@ -108,7 +108,6 @@ SETORES: dict[str, dict[str, str]] = {
         "INTB3": "Intelbras",
         "POSI3": "Positivo Tecnologia",
         "BMOB3": "Bemobi",
-        "NGRD3": "Neogrid",
         "ALLD3": "Allied Tecnologia",
         "CASH3": "Meliuz",
     },
@@ -127,7 +126,6 @@ SETORES: dict[str, dict[str, str]] = {
         "CPFE3": "CPFL Energia",
         "EGIE3": "Engie Brasil",
         "ENEV3": "Eneva",
-        "NEOE3": "Neoenergia",
         "TAEE11": "Taesa",
         "ISAE4": "ISA Energia (ex-TRPL4)",
     },
