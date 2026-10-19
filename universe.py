@@ -8,19 +8,12 @@ from __future__ import annotations
 
 SUFIXO_B3 = ".SA"
 
-# {setor GICS: {ticker: nome de exibicao}}
+# {setor: {ticker: nome de exibicao}}
+# Classificacao em 12 setores pela atividade que gera a maior parte da receita.
+# Saude e Telecom nao tem setor proprio nesta classificacao e ficaram de fora
+# (RDOR3, HAPV3, FLRY3, HYPE3, VIVT3, TIMS3, DESK3, BRST3).
 SETORES: dict[str, dict[str, str]] = {
-    "Tecnologia": {
-        "TOTS3": "Totvs",
-        "INTB3": "Intelbras",
-        "LWSA3": "Locaweb",
-        "BMOB3": "Bemobi",
-        # BDRs opcionais: nao sao acoes locais, mas dao exposicao ao setor.
-        "ROXO34": "Nu Holdings (BDR)",
-        "STOC34": "StoneCo (BDR, ex-STOC31)",
-        "PAGS34": "PagSeguro (BDR)",
-    },
-    "Financeiro": {
+    "Instituicoes Financeiras": {
         "ITUB4": "Itau Unibanco",
         "BBDC4": "Bradesco",
         "BBAS3": "Banco do Brasil",
@@ -30,80 +23,12 @@ SETORES: dict[str, dict[str, str]] = {
         "BBSE3": "BB Seguridade",
         "CXSE3": "Caixa Seguridade",
         "PSSA3": "Porto Seguro",
+        # BDRs opcionais: nao sao acoes locais, mas dao exposicao ao setor.
+        "ROXO34": "Nu Holdings (BDR)",
+        "STOC34": "StoneCo (BDR, ex-STOC31)",
+        "PAGS34": "PagSeguro (BDR)",
     },
-    "Bens Industriais": {
-        "WEGE3": "WEG",
-        "EMBJ3": "Embraer (ex-EMBR3)",
-        "RAIL3": "Rumo",
-        "MOTV3": "Motiva (ex-CCRO3)",
-        "ECOR3": "EcoRodovias",
-        # STBP3 saiu: Santos Brasil deixou de ter serie no Yahoo apos a OPA.
-        "POMO4": "Marcopolo",
-    },
-    "Saude": {
-        "RDOR3": "Rede D'Or",
-        "HAPV3": "Hapvida",
-        "RADL3": "Raia Drogasil",
-        "FLRY3": "Fleury",
-        "HYPE3": "Hypera",
-    },
-    "Consumo Ciclico": {
-        "RENT3": "Localiza",
-        "MOVI3": "Movida",
-        "LREN3": "Lojas Renner",
-        "AZZA3": "Azzas 2154",
-        "CEAB3": "C&A",
-        "YDUQ3": "YDUQS",
-        "COGN3": "Cogna",
-        "MGLU3": "Magazine Luiza",
-    },
-    "Comunicacao": {
-        "VIVT3": "Telefonica Brasil",
-        "TIMS3": "TIM",
-        "DESK3": "Desktop",
-        "BRST3": "Brisanet (ex-BRIT3)",
-    },
-    "Energia": {
-        "PETR4": "Petrobras",
-        "PRIO3": "PRIO",
-        "BRAV3": "Brava Energia",
-        "RECV3": "PetroReconcavo",
-        "VBBR3": "Vibra Energia",
-        "UGPA3": "Ultrapar",
-        "CSAN3": "Cosan",
-    },
-    "Consumo Nao Ciclico": {
-        "ABEV3": "Ambev",
-        "ASAI3": "Assai",
-        "PCAR3": "Grupo Pao de Acucar",
-        "JBSS32": "JBS N.V. (DR, ex-JBSS3)",
-        # BRF e Marfrig se fundiram: MBRF3 e o unico ticker sobrevivente.
-        "MBRF3": "Marfrig Global Foods (ex-BRFS3 e MRFG3)",
-        "MDIA3": "M. Dias Branco",
-        "SLCE3": "SLC Agricola",
-        "AGRO3": "BrasilAgro",
-        "SMTO3": "Sao Martinho",
-    },
-    "Materiais Basicos": {
-        "VALE3": "Vale",
-        "CMIN3": "CSN Mineracao",
-        "SUZB3": "Suzano",
-        "KLBN11": "Klabin",
-        "GGBR4": "Gerdau",
-        "USIM5": "Usiminas",
-        "CSNA3": "CSN",
-    },
-    "Imobiliario": {
-        "CYRE3": "Cyrela",
-        "CURY3": "Cury",
-        "DIRR3": "Direcional",
-        "MRVE3": "MRV",
-        "EZTC3": "EZTEC",
-        "ALOS3": "Allos",
-        "MULT3": "Multiplan",
-        "IGTI11": "Iguatemi",
-    },
-    "Utilidade Publica": {
+    "Utilidades Publicas": {
         "SBSP3": "Sabesp",
         "CSMG3": "Copasa",
         "SAPR11": "Sanepar",
@@ -115,6 +40,78 @@ SETORES: dict[str, dict[str, str]] = {
         "ENEV3": "Eneva",
         "CMIG4": "Cemig",
         "CPLE3": "Copel (ex-CPLE6)",
+    },
+    "Oleo & Gas": {
+        "PETR4": "Petrobras",
+        "PRIO3": "PRIO",
+        "BRAV3": "Brava Energia",
+        "RECV3": "PetroReconcavo",
+        "VBBR3": "Vibra Energia",
+        "UGPA3": "Ultrapar",
+        "CSAN3": "Cosan",
+    },
+    "Transporte": {
+        "RAIL3": "Rumo",
+        "MOTV3": "Motiva (ex-CCRO3)",
+        "ECOR3": "EcoRodovias",
+        # STBP3 saiu: Santos Brasil deixou de ter serie no Yahoo apos a OPA.
+        "RENT3": "Localiza",
+        "MOVI3": "Movida",
+    },
+    "Varejo": {
+        "LREN3": "Lojas Renner",
+        "AZZA3": "Azzas 2154",
+        "CEAB3": "C&A",
+        "MGLU3": "Magazine Luiza",
+        "RADL3": "Raia Drogasil",
+        "ASAI3": "Assai",
+        "PCAR3": "Grupo Pao de Acucar",
+    },
+    "Metais & Mineracao": {
+        "VALE3": "Vale",
+        "CMIN3": "CSN Mineracao",
+        "GGBR4": "Gerdau",
+        "USIM5": "Usiminas",
+        "CSNA3": "CSN",
+    },
+    "Bens de Capital": {
+        "WEGE3": "WEG",
+        "EMBJ3": "Embraer (ex-EMBR3)",
+        "POMO4": "Marcopolo",
+    },
+    "Alimentos & Bebidas": {
+        "ABEV3": "Ambev",
+        "JBSS32": "JBS N.V. (DR, ex-JBSS3)",
+        # BRF e Marfrig se fundiram: MBRF3 e o unico ticker sobrevivente.
+        "MBRF3": "Marfrig Global Foods (ex-BRFS3 e MRFG3)",
+        "MDIA3": "M. Dias Branco",
+        "SLCE3": "SLC Agricola",
+        "AGRO3": "BrasilAgro",
+        "SMTO3": "Sao Martinho",
+    },
+    "Imobiliario": {
+        "CYRE3": "Cyrela",
+        "CURY3": "Cury",
+        "DIRR3": "Direcional",
+        "MRVE3": "MRV",
+        "EZTC3": "EZTEC",
+        "ALOS3": "Allos",
+        "MULT3": "Multiplan",
+        "IGTI11": "Iguatemi",
+    },
+    "Papel & Celulose": {
+        "SUZB3": "Suzano",
+        "KLBN11": "Klabin",
+    },
+    "Tecnologia": {
+        "TOTS3": "Totvs",
+        "INTB3": "Intelbras",
+        "LWSA3": "Locaweb",
+        "BMOB3": "Bemobi",
+    },
+    "Educacao": {
+        "YDUQ3": "YDUQS",
+        "COGN3": "Cogna",
     },
 }
 

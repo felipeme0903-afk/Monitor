@@ -1,7 +1,7 @@
 # Monitor B3
 
-Aplicativo Streamlit que monitora ações brasileiras organizadas nos 11 setores
-GICS, além de índices globais, juros, commodities e câmbio. Todos os dados vêm
+Aplicativo Streamlit que monitora ações brasileiras organizadas em 12 setores
+(classificação própria por atividade principal), além de índices globais, juros, commodities e câmbio. Todos os dados vêm
 do Yahoo Finance e da API SGS do Banco Central. Não há chamada a modelos de IA:
 o pipeline é determinístico e não exige nenhuma chave de API.
 
@@ -23,7 +23,7 @@ a maior baixa do setor selecionado. Abaixo, cinco abas.
 | Aba | Conteúdo |
 |-----|----------|
 | Panorama Macro | Índices, juros, commodities e câmbio com retorno de 1 dia, 1 mês e no ano, mais um comparativo normalizado em base 100 |
-| Setores | Os 11 setores lado a lado, barras ordenadas por retorno e uma dispersão de P/L mediano contra retorno com bolha proporcional ao Market Cap |
+| Setores | Os 12 setores lado a lado, barras ordenadas por retorno e uma dispersão de P/L mediano contra retorno com bolha proporcional ao Market Cap |
 | Screener | Todas as ações do setor com risco, múltiplos e filtros de P/L, volatilidade e Dividend Yield |
 | Raio-X | Uma ação, índice ou commodity com candlestick, médias móveis, volume, drawdown e volatilidade |
 | Fundamentos | Margens por trimestre, dívida, caixa e patrimônio, e a tabela de proventos |

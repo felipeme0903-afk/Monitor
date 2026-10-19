@@ -73,7 +73,7 @@ def barra_lateral() -> dict:
         format_func=lambda t: f"{t} - {uni.BENCHMARKS[t]}",
     )
     periodicidade = st.sidebar.selectbox("Periodicidade do beta", ["Semanal", "Diaria"])
-    setor = st.sidebar.selectbox("Setor", uni.setores(), index=uni.setores().index("Financeiro"))
+    setor = st.sidebar.selectbox("Setor", uni.setores(), index=uni.setores().index("Instituicoes Financeiras"))
 
     disponiveis = uni.tickers_do_setor(setor)
     escolhidos = st.sidebar.multiselect(
