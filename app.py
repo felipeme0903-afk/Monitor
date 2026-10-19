@@ -140,7 +140,7 @@ def montar_screener(
             continue
 
         adj, close = df["Adj Close"], df["Close"]
-        fund = fundamentos.get(chave, {})
+        fund = _fundamentos_validos(ticker, fundamentos.get(chave, {}))
 
         linhas.append(
             {
@@ -166,6 +166,18 @@ def montar_screener(
 
 def _pct(valor) -> float:
     return np.nan if pd.isna(valor) else float(valor) * 100
+
+
+def _fundamentos_validos(ticker: str, fund: dict) -> dict:
+    """Descarta o market cap de BDRs.
+
+    O Yahoo multiplica as acoes da empresa estrangeira pelo preco do BDR em
+    reais, o que invalida P/L, EV/EBITDA, P/VP e Market Equity/Debt. Sem o
+    market cap, essas funcoes devolvem n/d. ROE e margens nao dependem dele.
+    """
+    if uni.eh_bdr(ticker) and fund.get("market_cap"):
+        return {**fund, "market_cap": None}
+    return fund
 
 
 def aplicar_filtros(tabela: pd.DataFrame) -> pd.DataFrame:
@@ -333,52 +345,78 @@ def resumo_setorial(
     inicio: pd.Timestamp,
     fim: pd.Timestamp,
 ) -> pd.DataFrame:
-    """Uma linha por setor. Medias para risco, medianas para multiplos."""
+    """Duas linhas por setor: acoes locais e BDRs, sempre separadas.
+
+    Medias para risco, medianas para multiplos. Nos BDRs, P/L, Market
+    Equity/Debt e Market Cap ficam n/d: o market cap do Yahoo multiplica
+    as acoes da empresa estrangeira pelo preco do BDR em reais.
+    """
     bench_df = cotacoes.get(controles["benchmark"])
     bench = bench_df["Adj Close"] if bench_df is not None else pd.Series(dtype=float)
     observacoes = calc.SEMANAS_BETA_2A if controles["periodicidade"] == "Semanal" else 504
 
     linhas = []
     for setor in uni.setores():
-        retornos, volatilidades, betas, precos_lucro, yields, capital = [], [], [], [], [], []
-        equity_divida = []
-
-        for ticker in uni.tickers_do_setor(setor):
-            chave = uni.para_yahoo(ticker)
-            df = cotacoes.get(chave)
-            if df is None:
-                continue
-            adj, close = df["Adj Close"], df["Close"]
-            fund = fundamentos.get(chave, {})
-
-            retornos.append(calc.retorno_periodo(adj, inicio, fim))
-            volatilidades.append(calc.volatilidade_anualizada(adj, 252, fim))
-            betas.append(
-                calc.beta(adj, bench, controles["periodicidade"], observacoes, fim)
-            )
-            precos_lucro.append(calc.preco_lucro(fund, fim))
-            yields.append(calc.dividend_yield_ltm(fonte.proventos(df), close, fim))
-            equity_divida.append(calc.market_equity_divida(fund, fim))
-            if fund.get("market_cap"):
-                capital.append(float(fund["market_cap"]))
-
-        if not retornos:
-            continue
-        linhas.append(
-            {
-                "Setor": setor,
-                "Retorno periodo %": _pct(_media(retornos)),
-                "Volatilidade media %": _pct(_media(volatilidades)),
-                "Beta medio": _media(betas),
-                "P/L mediano": _mediana(precos_lucro),
-                "DY mediano %": _pct(_mediana(yields)),
-                "Market Equity/Debt mediano": _mediana(equity_divida),
-                "Market Cap total": float(sum(capital)) if capital else np.nan,
-                "Acoes": len(retornos),
-            }
+        grupos = (
+            ("Local", setor, uni.tickers_locais_do_setor(setor)),
+            ("BDR", f"{setor} (BDRs)", uni.tickers_bdr_do_setor(setor)),
         )
+        for tipo, rotulo, tickers in grupos:
+            linha = _consolidar_grupo(
+                tickers, cotacoes, fundamentos, bench, controles, observacoes,
+                inicio, fim, tipo == "BDR",
+            )
+            if linha is not None:
+                linhas.append({"Setor": rotulo, "Tipo": tipo, **linha})
 
     return pd.DataFrame(linhas)
+
+
+def _consolidar_grupo(
+    tickers: list[str],
+    cotacoes: dict[str, pd.DataFrame],
+    fundamentos: dict[str, dict],
+    bench: pd.Series,
+    controles: dict,
+    observacoes: int,
+    inicio: pd.Timestamp,
+    fim: pd.Timestamp,
+    bdr: bool,
+) -> dict | None:
+    retornos, volatilidades, betas, precos_lucro, yields, capital = [], [], [], [], [], []
+    equity_divida = []
+
+    for ticker in tickers:
+        chave = uni.para_yahoo(ticker)
+        df = cotacoes.get(chave)
+        if df is None:
+            continue
+        adj, close = df["Adj Close"], df["Close"]
+        fund = fundamentos.get(chave, {})
+
+        retornos.append(calc.retorno_periodo(adj, inicio, fim))
+        volatilidades.append(calc.volatilidade_anualizada(adj, 252, fim))
+        betas.append(calc.beta(adj, bench, controles["periodicidade"], observacoes, fim))
+        yields.append(calc.dividend_yield_ltm(fonte.proventos(df), close, fim))
+        if bdr:
+            continue
+        precos_lucro.append(calc.preco_lucro(fund, fim))
+        equity_divida.append(calc.market_equity_divida(fund, fim))
+        if fund.get("market_cap"):
+            capital.append(float(fund["market_cap"]))
+
+    if not retornos:
+        return None
+    return {
+        "Retorno periodo %": _pct(_media(retornos)),
+        "Volatilidade media %": _pct(_media(volatilidades)),
+        "Beta medio": _media(betas),
+        "P/L mediano": _mediana(precos_lucro),
+        "DY mediano %": _pct(_mediana(yields)),
+        "Market Equity/Debt mediano": _mediana(equity_divida),
+        "Market Cap total": float(sum(capital)) if capital else np.nan,
+        "Acoes": len(retornos),
+    }
 
 
 def _media(valores) -> float:
@@ -403,7 +441,17 @@ def aba_setores(
         st.warning("Nao foi possivel consolidar nenhum setor.")
         return
 
-    visivel = tabela.drop(columns=["Market Cap total"]).assign(
+    exibir = st.radio(
+        "Exibir", ["Acoes locais", "BDRs", "Locais e BDRs"], horizontal=True,
+        key="setores_tipo",
+    )
+    filtro = {"Acoes locais": ["Local"], "BDRs": ["BDR"], "Locais e BDRs": ["Local", "BDR"]}
+    tabela = tabela[tabela["Tipo"].isin(filtro[exibir])]
+    if tabela.empty:
+        st.info("Nenhum ativo deste tipo tem cotacoes na janela escolhida.")
+        return
+
+    visivel = tabela.drop(columns=["Market Cap total", "Tipo"]).assign(
         **{"Market Cap total (R$ bi)": tabela["Market Cap total"] / 1e9}
     )
     numericas = [
@@ -422,7 +470,9 @@ def aba_setores(
     st.dataframe(estilo, width="stretch", hide_index=True)
     st.caption(
         "Retorno, volatilidade e beta sao medias simples das acoes do setor. "
-        "P/L, DY e Market Equity/Debt sao medianas, que ignoram n/d e P/L negativo."
+        "P/L, DY e Market Equity/Debt sao medianas, que ignoram n/d e P/L negativo. "
+        "BDRs ficam em linhas proprias e sem P/L, Market Equity/Debt e Market Cap: "
+        "o Yahoo mistura acoes da empresa estrangeira com o preco do BDR em reais."
     )
 
     st.divider()
@@ -432,8 +482,13 @@ def aba_setores(
     )
 
     st.divider()
-    st.caption("Cada bolha e um setor. O tamanho e o Market Cap somado das acoes.")
-    st.plotly_chart(graf.dispersao_setores(tabela), width="stretch")
+    st.caption(
+        "Cada bolha e um setor, so com acoes locais. "
+        "O tamanho e o Market Cap somado das acoes."
+    )
+    st.plotly_chart(
+        graf.dispersao_setores(tabela[tabela["Tipo"] == "Local"]), width="stretch"
+    )
 
 
 # ---------------------------------------------------------------- raio-x
@@ -516,7 +571,7 @@ def _cartoes_raio_x(
         return
 
     fundamentos, _ = fonte.carregar_fundamentos((chave,))
-    fund = fundamentos.get(chave, {})
+    fund = _fundamentos_validos(chave, fundamentos.get(chave, {}))
     margem = calc.margens(fund, fim)
 
     linha_dois = st.columns(5)
@@ -690,6 +745,11 @@ def aba_screener(
 
     tabela = montar_screener(controles, cotacoes, fundamentos, inicio, fim)
     exibir_tabela(aplicar_filtros(tabela))
+    if any(uni.eh_bdr(t) for t in controles["tickers"]):
+        st.caption(
+            "BDRs aparecem sem P/L, EV/EBITDA, P/VP e Market Equity/Debt: "
+            "o market cap do Yahoo para BDR nao e confiavel."
+        )
     _listar_falhas(falhas_preco, falhas_fund)
 
 

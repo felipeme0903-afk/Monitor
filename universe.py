@@ -9,8 +9,8 @@ from __future__ import annotations
 SUFIXO_B3 = ".SA"
 
 # {setor da B3: {ticker: nome de exibicao}}
-# Classificacao setorial da B3. Os BDRs (final 32-35) dao exposicao
-# internacional ao setor, mas nao sao acoes locais.
+# Classificacao setorial da B3. Os BDRs (final 32-35) sao identificados por
+# `eh_bdr` e ficam separados dos agregados das acoes locais.
 SETORES: dict[str, dict[str, str]] = {
     "Bens Industriais": {
         "WEGE3": "WEG",
@@ -21,8 +21,8 @@ SETORES: dict[str, dict[str, str]] = {
         "RAPT4": "Randoncorp",
         "TUPY3": "Tupy",
         "ECOR3": "EcoRodovias",
-        "GEOO34": "GE Aerospace (BDR)",
-        "HONB34": "Honeywell (BDR)",
+        "VAMO3": "Vamos",
+        "GGPS3": "Grupo GPS",
     },
     "Consumo Ciclico": {
         "RENT3": "Localiza",
@@ -35,8 +35,8 @@ SETORES: dict[str, dict[str, str]] = {
         "DIRR3": "Direcional",
         "SMFT3": "Smart Fit",
         "VIVA3": "Vivara",
-        "AMZO34": "Amazon (BDR)",
-        "MCDC34": "McDonald's (BDR)",
+        "CEAB3": "C&A",
+        "YDUQ3": "YDUQS",
     },
     "Consumo Nao Ciclico": {
         "ABEV3": "Ambev",
@@ -49,9 +49,9 @@ SETORES: dict[str, dict[str, str]] = {
         "CAML3": "Camil",
         "BEEF3": "Minerva",
         "GMAT3": "Grupo Mateus",
-        "COCA34": "Coca-Cola (BDR)",
-        "WALM34": "Walmart (BDR)",
-        "PGCO34": "Procter & Gamble (BDR)",
+        "SMTO3": "Sao Martinho",
+        "SLCE3": "SLC Agricola",
+        "TTEN3": "3tentos",
     },
     "Financeiro": {
         "ITUB4": "Itau Unibanco",
@@ -67,8 +67,8 @@ SETORES: dict[str, dict[str, str]] = {
         "ROXO34": "Nu Holdings (BDR, ex-NUBR33)",
         # A B3 classifica shoppings em Financeiro > Exploracao de Imoveis.
         "ALOS3": "Allos",
-        "JPMC34": "JPMorgan (BDR)",
-        "VISA34": "Visa (BDR)",
+        "MULT3": "Multiplan",
+        "BRSR6": "Banrisul",
     },
     "Materiais Basicos": {
         "VALE3": "Vale",
@@ -90,8 +90,8 @@ SETORES: dict[str, dict[str, str]] = {
         "RECV3": "PetroReconcavo",
         "CSAN3": "Cosan",
         "RAIZ4": "Raizen",
-        "EXXO34": "Exxon Mobil (BDR)",
-        "CHVX34": "Chevron (BDR)",
+        "PASS3": "Compass",
+        "JALL3": "Jalles Machado",
     },
     "Saude": {
         "RDOR3": "Rede D'Or",
@@ -101,19 +101,19 @@ SETORES: dict[str, dict[str, str]] = {
         "HYPE3": "Hypera Pharma",
         "ODPV3": "OdontoPrev",
         "MATD3": "Mater Dei",
-        "JNJB34": "Johnson & Johnson (BDR)",
-        "PFIZ34": "Pfizer (BDR)",
+        "BLAU3": "Blau Farmaceutica",
+        "PGMN3": "Pague Menos",
     },
     "Tecnologia da Informacao": {
         "TOTS3": "Totvs",
         "LWSA3": "Locaweb",
         "INTB3": "Intelbras",
         "POSI3": "Positivo Tecnologia",
-        "AAPL34": "Apple (BDR)",
-        "MSFT34": "Microsoft (BDR)",
+        "BMOB3": "Bemobi",
+        "NGRD3": "Neogrid",
         "GOGL35": "Alphabet (BDR)",
-        "NVDC34": "Nvidia (BDR)",
-        "M1TA34": "Meta Platforms (BDR)",
+        "ALLD3": "Allied Tecnologia",
+        "CASH3": "Meliuz",
     },
     "Telecomunicacoes": {
         "VIVT3": "Telefonica Brasil (Vivo)",
@@ -178,6 +178,19 @@ def setores() -> list[str]:
 
 def tickers_do_setor(setor: str) -> list[str]:
     return list(SETORES.get(setor, {}).keys())
+
+
+def eh_bdr(ticker: str) -> bool:
+    """BDRs na B3 terminam em 32, 33, 34 ou 35 (ex.: AAPL34, ROXO34, JBSS32)."""
+    return de_yahoo(ticker)[-2:] in {"32", "33", "34", "35"}
+
+
+def tickers_locais_do_setor(setor: str) -> list[str]:
+    return [t for t in tickers_do_setor(setor) if not eh_bdr(t)]
+
+
+def tickers_bdr_do_setor(setor: str) -> list[str]:
+    return [t for t in tickers_do_setor(setor) if eh_bdr(t)]
 
 
 def todos_tickers_b3() -> list[str]:
