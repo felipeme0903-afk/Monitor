@@ -9,8 +9,8 @@ from __future__ import annotations
 SUFIXO_B3 = ".SA"
 
 # {setor da B3: {ticker: nome de exibicao}}
-# Classificacao setorial da B3. Os BDRs (final 32-35) sao identificados por
-# `eh_bdr` e ficam separados dos agregados das acoes locais.
+# Classificacao setorial da B3, so com acoes locais. BDRs ficaram de fora:
+# o Yahoo nao entrega market cap nem multiplos confiaveis para eles.
 SETORES: dict[str, dict[str, str]] = {
     "Bens Industriais": {
         "WEGE3": "WEG",
@@ -40,7 +40,6 @@ SETORES: dict[str, dict[str, str]] = {
     },
     "Consumo Nao Ciclico": {
         "ABEV3": "Ambev",
-        "JBSS32": "JBS N.V. (DR, ex-JBSS3)",
         # BRF e Marfrig se fundiram: MBRF3 e o unico ticker sobrevivente.
         "MBRF3": "MBRF (ex-BRFS3 e MRFG3)",
         "ASAI3": "Assai",
@@ -64,7 +63,6 @@ SETORES: dict[str, dict[str, str]] = {
         "BBSE3": "BB Seguridade",
         "CXSE3": "Caixa Seguridade",
         "PSSA3": "Porto Seguro",
-        "ROXO34": "Nu Holdings (BDR, ex-NUBR33)",
         # A B3 classifica shoppings em Financeiro > Exploracao de Imoveis.
         "ALOS3": "Allos",
         "MULT3": "Multiplan",
@@ -111,7 +109,6 @@ SETORES: dict[str, dict[str, str]] = {
         "POSI3": "Positivo Tecnologia",
         "BMOB3": "Bemobi",
         "NGRD3": "Neogrid",
-        "GOGL35": "Alphabet (BDR)",
         "ALLD3": "Allied Tecnologia",
         "CASH3": "Meliuz",
     },
@@ -134,6 +131,15 @@ SETORES: dict[str, dict[str, str]] = {
         "TAEE11": "Taesa",
         "ISAE4": "ISA Energia (ex-TRPL4)",
     },
+}
+
+# Units negociam um pacote de acoes. O balanco informa acoes, nao units, entao
+# o market cap calculado divide o total de acoes por este fator.
+ACOES_POR_UNIT: dict[str, int] = {
+    "SANB11": 2,  # 1 ON + 1 PN
+    "BPAC11": 3,  # 1 ON + 2 PNA
+    "KLBN11": 5,  # 1 ON + 4 PN
+    "TAEE11": 3,  # 1 ON + 2 PN
 }
 
 # Ativos macro. Sao tickers do Yahoo Finance e nao levam sufixo.
@@ -180,17 +186,8 @@ def tickers_do_setor(setor: str) -> list[str]:
     return list(SETORES.get(setor, {}).keys())
 
 
-def eh_bdr(ticker: str) -> bool:
-    """BDRs na B3 terminam em 32, 33, 34 ou 35 (ex.: AAPL34, ROXO34, JBSS32)."""
-    return de_yahoo(ticker)[-2:] in {"32", "33", "34", "35"}
-
-
-def tickers_locais_do_setor(setor: str) -> list[str]:
-    return [t for t in tickers_do_setor(setor) if not eh_bdr(t)]
-
-
-def tickers_bdr_do_setor(setor: str) -> list[str]:
-    return [t for t in tickers_do_setor(setor) if eh_bdr(t)]
+def acoes_por_unit(ticker: str) -> int:
+    return ACOES_POR_UNIT.get(de_yahoo(ticker), 1)
 
 
 def todos_tickers_b3() -> list[str]:

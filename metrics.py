@@ -45,6 +45,7 @@ LINHAS = {
     "divida_bruta": ["Total Debt"],
     "divida_longa": ["Long Term Debt", "Long Term Debt And Capital Lease Obligation"],
     "divida_curta": ["Current Debt", "Current Debt And Capital Lease Obligation"],
+    "acoes": ["Ordinary Shares Number", "Share Issued"],
     "caixa": [
         "Cash And Cash Equivalents",
         "Cash Cash Equivalents And Short Term Investments",
@@ -291,6 +292,32 @@ def market_equity_divida(fundamentos: dict, t_ref) -> float:
     if pd.isna(divida) or divida <= 0:
         return np.nan
     return float(market_cap / divida)
+
+
+def market_cap_calculado(fundamentos: dict, precos_close, t_ref, acoes_por_unit: int = 1) -> float:
+    """Preco x numero de acoes do balanco mais recente ate t_ref.
+
+    Usado quando o Yahoo nao devolve o market cap. Soma todas as classes
+    (ON + PN) ao preco da classe monitorada, a mesma aproximacao do Yahoo.
+    """
+    acoes = ultimo_valor(linha(fundamentos.get("trimestral_bp"), "acoes"), t_ref)
+    if pd.isna(acoes):
+        acoes = ultimo_valor(linha(fundamentos.get("anual_bp"), "acoes"), t_ref)
+    preco = ultimo_valor(precos_close, t_ref)
+    if pd.isna(acoes) or pd.isna(preco) or acoes <= 0 or preco <= 0:
+        return np.nan
+    return float(preco * acoes / max(acoes_por_unit, 1))
+
+
+def com_market_cap(fundamentos: dict, precos_close, t_ref, acoes_por_unit: int = 1) -> dict:
+    """Devolve os fundamentos com market cap: o do Yahoo ou, sem ele, o calculado."""
+    atual = fundamentos.get("market_cap")
+    if atual and not pd.isna(atual):
+        return fundamentos
+    calculado = market_cap_calculado(fundamentos, precos_close, t_ref, acoes_por_unit)
+    if pd.isna(calculado):
+        return fundamentos
+    return {**fundamentos, "market_cap": calculado}
 
 
 def roe(fundamentos: dict, t_ref) -> float:
