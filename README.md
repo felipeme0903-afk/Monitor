@@ -1,7 +1,7 @@
 # Monitor B3
 
-Aplicativo Streamlit que monitora ações brasileiras organizadas nos 10 setores
-da classificação setorial da B3, além de índices globais, juros, commodities e câmbio. Todos os dados vêm
+Aplicativo Streamlit que monitora 95 ações brasileiras organizadas em 9 setores
+e 35 subsetores por atividade-fim, além de índices globais, juros, commodities e câmbio. Todos os dados vêm
 do Yahoo Finance e da API SGS do Banco Central. Não há chamada a modelos de IA:
 o pipeline é determinístico e não exige nenhuma chave de API.
 
@@ -18,13 +18,13 @@ o pipeline é determinístico e não exige nenhuma chave de API.
 ## O que o app mostra
 
 No topo, cinco indicadores do dia: Ibovespa, dólar, Selic meta e a maior alta e
-a maior baixa do setor selecionado. Abaixo, cinco abas.
+a maior baixa do setor ou subsetor selecionado. Abaixo, cinco abas.
 
 | Aba | Conteúdo |
 |-----|----------|
 | Panorama Macro | Índices, juros, commodities e câmbio com retorno de 1 dia, 1 mês e no ano, mais um comparativo normalizado em base 100 |
-| Setores | Os 10 setores lado a lado, barras ordenadas por retorno e uma dispersão de P/L mediano contra retorno com bolha proporcional ao Market Cap |
-| Screener | Todas as ações do setor com risco, múltiplos e filtros de P/L, volatilidade e Dividend Yield |
+| Setores | Setores ou subsetores lado a lado (seletor de nível), barras ordenadas por retorno e uma dispersão de P/L mediano contra retorno com bolha proporcional ao Market Cap |
+| Screener | Todas as ações do setor ou subsetor com risco, múltiplos e filtros de P/L, volatilidade e Dividend Yield |
 | Raio-X | Uma ação, índice ou commodity com candlestick, médias móveis, volume, drawdown e volatilidade |
 | Fundamentos | Margens por trimestre, dívida, caixa e patrimônio, e a tabela de proventos |
 
@@ -107,6 +107,11 @@ o CSS do resto e é a fonte única da paleta, de onde `charts.py` importa.
   gráfico, o que acontece com bancos, que não reportam lucro bruto nem EBITDA.
 - **Proventos**: apenas data ex e valor por ação. O Yahoo não informa Data Com e
   não separa dividendo de juros sobre capital próprio.
+- **Bancos e seguradoras**: EV/EBITDA, Market Equity/Debt, margens e dívida
+  líquida/EBITDA aparecem como n/d, porque nesses negócios dívida é captação e
+  não existe EBITDA. A comparação deve usar P/L, P/VP e ROE.
+- **Amostra pequena**: subsetores com menos de 3 ações têm a contagem em
+  amarelo na aba Setores; a média e a mediana representam poucas empresas.
 - **Consolidado por setor**: retorno, volatilidade e beta são médias simples das
   ações do setor. P/L e Dividend Yield são medianas, que descartam os n/d e, no
   caso do P/L, também as empresas com lucro não positivo.

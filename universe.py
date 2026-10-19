@@ -8,128 +8,207 @@ from __future__ import annotations
 
 SUFIXO_B3 = ".SA"
 
-# {setor da B3: {ticker: nome de exibicao}}
-# Classificacao setorial da B3, so com acoes locais. BDRs ficaram de fora:
-# o Yahoo nao entrega market cap nem multiplos confiaveis para eles.
-# NEOE3, NGRD3 e ODPV3 sairam: o Yahoo nao devolve mais serie de cotacoes.
-SETORES: dict[str, dict[str, str]] = {
-    "Bens Industriais": {
-        "WEGE3": "WEG",
-        "EMBJ3": "Embraer (ex-EMBR3)",
-        "MOTV3": "Motiva (ex-CCRO3)",
-        "RAIL3": "Rumo",
-        "POMO4": "Marcopolo",
-        "RAPT4": "Randoncorp",
-        "TUPY3": "Tupy",
-        "ECOR3": "EcoRodovias",
-        "VAMO3": "Vamos",
-        "GGPS3": "Grupo GPS",
+# {setor: {subsetor: {ticker: nome de exibicao}}}
+# Classificacao propria por atividade-fim, em dois niveis. So acoes locais:
+# BDRs ficaram de fora porque o Yahoo nao entrega multiplos confiaveis para
+# eles. Sairam por falta de cotacoes no Yahoo: NEOE3, NGRD3, ODPV3, JBSS3
+# (JBS so negocia como BDR, JBSS32), ELET3 (hoje AXIA3) e BRIT3 (hoje BRST3).
+SETORES: dict[str, dict[str, dict[str, str]]] = {
+    "Financeiro e Imobiliario": {
+        "Bancos": {
+            "ITUB4": "Itau Unibanco",
+            "BBDC4": "Bradesco",
+            "BBAS3": "Banco do Brasil",
+            "SANB11": "Santander Brasil",
+            "BPAC11": "BTG Pactual",
+            "BRSR6": "Banrisul",
+        },
+        "Seguros e resseguros": {
+            "BBSE3": "BB Seguridade",
+            "CXSE3": "Caixa Seguridade",
+            "PSSA3": "Porto Seguro",
+            "IRBR3": "IRB(Re)",
+        },
+        "Holdings de participacoes": {
+            "ITSA4": "Itausa",
+            "BRAP4": "Bradespar",
+            "CSAN3": "Cosan",
+        },
+        "Shopping centers": {
+            "ALOS3": "Allos",
+            "MULT3": "Multiplan",
+        },
+        "Incorporacao residencial": {
+            "CYRE3": "Cyrela",
+            "MRVE3": "MRV",
+            "CURY3": "Cury",
+            "DIRR3": "Direcional",
+        },
     },
-    "Consumo Ciclico": {
-        "RENT3": "Localiza",
-        "LREN3": "Lojas Renner",
-        "MGLU3": "Magazine Luiza",
-        "AZZA3": "Azzas 2154",
-        "CYRE3": "Cyrela",
-        "MRVE3": "MRV",
-        "CURY3": "Cury",
-        "DIRR3": "Direcional",
-        "SMFT3": "Smart Fit",
-        "VIVA3": "Vivara",
-        "CEAB3": "C&A",
-        "YDUQ3": "YDUQS",
+    "Varejo e Servicos ao Consumidor": {
+        "Varejo de moda e joias": {
+            "LREN3": "Lojas Renner",
+            "AZZA3": "Azzas 2154",
+            "CEAB3": "C&A",
+            "VIVA3": "Vivara",
+        },
+        "Varejo de eletronicos e e-commerce": {
+            "MGLU3": "Magazine Luiza",
+        },
+        "Varejo alimentar (atacarejo)": {
+            "ASAI3": "Assai",
+            "GMAT3": "Grupo Mateus",
+        },
+        "Locacao de veiculos e maquinas": {
+            "RENT3": "Localiza",
+            "VAMO3": "Vamos",
+        },
+        "Educacao": {
+            "YDUQ3": "YDUQS",
+        },
+        "Academias": {
+            "SMFT3": "Smart Fit",
+        },
+        "Servicos terceirizados (facilities)": {
+            "GGPS3": "Grupo GPS",
+        },
     },
-    "Consumo Nao Ciclico": {
-        "ABEV3": "Ambev",
-        # BRF e Marfrig se fundiram: MBRF3 e o unico ticker sobrevivente.
-        "MBRF3": "MBRF (ex-BRFS3 e MRFG3)",
-        "ASAI3": "Assai",
-        "NATU3": "Natura",
-        "MDIA3": "M. Dias Branco",
-        "CAML3": "Camil",
-        "BEEF3": "Minerva",
-        "GMAT3": "Grupo Mateus",
-        "SMTO3": "Sao Martinho",
-        "SLCE3": "SLC Agricola",
-        "TTEN3": "3tentos",
+    "Alimentos, Bebidas e Agronegocio": {
+        "Alimentos e bebidas": {
+            "ABEV3": "Ambev",
+            "MDIA3": "M. Dias Branco",
+            "CAML3": "Camil",
+        },
+        "Proteina animal (frigorificos)": {
+            # BRF e Marfrig se fundiram: MBRF3 e o unico ticker sobrevivente.
+            "MBRF3": "MBRF (ex-BRFS3 e MRFG3)",
+            "BEEF3": "Minerva",
+        },
+        "Graos e insumos agricolas": {
+            "SLCE3": "SLC Agricola",
+            "TTEN3": "3tentos",
+        },
+        "Acucar e etanol": {
+            "SMTO3": "Sao Martinho",
+            "JALL3": "Jalles Machado",
+            "RAIZ4": "Raizen",
+        },
+        "Higiene pessoal e beleza": {
+            "NATU3": "Natura",
+        },
     },
-    "Financeiro": {
-        "ITUB4": "Itau Unibanco",
-        "BBDC4": "Bradesco",
-        "BBAS3": "Banco do Brasil",
-        "SANB11": "Santander Brasil",
-        "BPAC11": "BTG Pactual",
-        "B3SA3": "B3",
-        "ITSA4": "Itausa",
-        "BBSE3": "BB Seguridade",
-        "CXSE3": "Caixa Seguridade",
-        "PSSA3": "Porto Seguro",
-        # A B3 classifica shoppings em Financeiro > Exploracao de Imoveis.
-        "ALOS3": "Allos",
-        "MULT3": "Multiplan",
-        "BRSR6": "Banrisul",
+    "Petroleo e Gas": {
+        "Exploracao e producao": {
+            "PETR4": "Petrobras",
+            "PRIO3": "PRIO",
+            "BRAV3": "Brava Energia",
+            "RECV3": "PetroReconcavo",
+        },
+        "Distribuicao de combustiveis e gas": {
+            "VBBR3": "Vibra Energia",
+            "UGPA3": "Ultrapar",
+            "PASS3": "Compass",
+        },
     },
     "Materiais Basicos": {
-        "VALE3": "Vale",
-        "SUZB3": "Suzano",
-        "KLBN11": "Klabin",
-        "GGBR4": "Gerdau",
-        "CSNA3": "CSN",
-        "CMIN3": "CSN Mineracao",
-        "USIM5": "Usiminas",
-        "BRKM5": "Braskem",
-        "BRAP4": "Bradespar",
+        "Mineracao": {
+            "VALE3": "Vale",
+            "CMIN3": "CSN Mineracao",
+        },
+        "Siderurgia": {
+            "GGBR4": "Gerdau",
+            "CSNA3": "CSN",
+            "USIM5": "Usiminas",
+        },
+        "Papel e celulose": {
+            "SUZB3": "Suzano",
+            "KLBN11": "Klabin",
+        },
+        "Petroquimica": {
+            "BRKM5": "Braskem",
+        },
     },
-    "Petroleo, Gas e Biocombustiveis": {
-        "PETR4": "Petrobras",
-        "PRIO3": "PRIO",
-        "VBBR3": "Vibra Energia",
-        "UGPA3": "Ultrapar",
-        "BRAV3": "Brava Energia",
-        "RECV3": "PetroReconcavo",
-        "CSAN3": "Cosan",
-        "RAIZ4": "Raizen",
-        "PASS3": "Compass",
-        "JALL3": "Jalles Machado",
+    "Industria e Infraestrutura de Transporte": {
+        "Maquinas, veiculos e componentes": {
+            "WEGE3": "WEG",
+            "EMBJ3": "Embraer (ex-EMBR3)",
+            "POMO4": "Marcopolo",
+            "RAPT4": "Randoncorp",
+            "TUPY3": "Tupy",
+        },
+        "Concessoes de rodovias e ferrovias": {
+            "MOTV3": "Motiva (ex-CCRO3)",
+            "ECOR3": "EcoRodovias",
+            "RAIL3": "Rumo",
+        },
     },
     "Saude": {
-        "RDOR3": "Rede D'Or",
-        "HAPV3": "Hapvida",
-        "RADL3": "RD Saude",
-        "FLRY3": "Fleury",
-        "HYPE3": "Hypera Pharma",
-        "MATD3": "Mater Dei",
-        "BLAU3": "Blau Farmaceutica",
-        "PGMN3": "Pague Menos",
+        "Hospitais e medicina diagnostica": {
+            "RDOR3": "Rede D'Or",
+            "MATD3": "Mater Dei",
+            "FLRY3": "Fleury",
+        },
+        "Planos de saude": {
+            "HAPV3": "Hapvida",
+        },
+        "Industria farmaceutica": {
+            "HYPE3": "Hypera Pharma",
+            "BLAU3": "Blau Farmaceutica",
+        },
+        "Farmacias": {
+            "RADL3": "RD Saude",
+            "PGMN3": "Pague Menos",
+        },
     },
-    "Tecnologia da Informacao": {
-        "TOTS3": "Totvs",
-        "LWSA3": "Locaweb",
-        "INTB3": "Intelbras",
-        "POSI3": "Positivo Tecnologia",
-        "BMOB3": "Bemobi",
-        "ALLD3": "Allied Tecnologia",
-        "CASH3": "Meliuz",
+    "Tecnologia e Telecomunicacoes": {
+        "Software e plataformas digitais": {
+            "TOTS3": "Totvs",
+            "LWSA3": "Locaweb",
+            "BMOB3": "Bemobi",
+            "CASH3": "Meliuz",
+        },
+        "Hardware e equipamentos": {
+            "INTB3": "Intelbras",
+            "POSI3": "Positivo Tecnologia",
+            "PDTC3": "Padtec",
+            "ALLD3": "Allied Tecnologia",
+        },
+        "Operadoras de telecomunicacoes": {
+            "VIVT3": "Telefonica Brasil (Vivo)",
+            "TIMS3": "TIM",
+            "BRST3": "Brisanet (ex-BRIT3)",
+            "FIQE3": "Unifique",
+        },
     },
-    "Telecomunicacoes": {
-        "VIVT3": "Telefonica Brasil (Vivo)",
-        "TIMS3": "TIM",
-        "BRST3": "Brisanet (ex-BRIT3)",
-        "FIQE3": "Unifique",
-    },
-    "Utilidade Publica": {
-        "AXIA3": "Axia Energia (ex-Eletrobras, ex-ELET3)",
-        "EQTL3": "Equatorial",
-        "SBSP3": "Sabesp",
-        "CMIG4": "Cemig",
-        "CPLE3": "Copel (ex-CPLE6)",
-        "CPFE3": "CPFL Energia",
-        "EGIE3": "Engie Brasil",
-        "ENEV3": "Eneva",
-        "TAEE11": "Taesa",
-        "ISAE4": "ISA Energia (ex-TRPL4)",
+    "Energia Eletrica e Saneamento": {
+        "Geracao de energia": {
+            "AXIA3": "Axia Energia (ex-Eletrobras, ex-ELET3)",
+            "EGIE3": "Engie Brasil",
+            "ENEV3": "Eneva",
+        },
+        "Distribuicao e energia integrada": {
+            "EQTL3": "Equatorial",
+            "CMIG4": "Cemig",
+            "CPLE3": "Copel (ex-CPLE6)",
+            "CPFE3": "CPFL Energia",
+        },
+        "Transmissao de energia": {
+            "TAEE11": "Taesa",
+            "ISAE4": "ISA Energia (ex-TRPL4)",
+        },
+        "Saneamento": {
+            "SBSP3": "Sabesp",
+        },
     },
 }
+
+# Em bancos e seguradoras, "divida" e captacao e nao ha EBITDA nem receita
+# operacional comparavel. Nesses subsetores o app mostra n/d em EV/EBITDA,
+# Market Equity/Debt, Divida liquida/EBITDA e margens.
+SUBSETORES_FINANCEIROS = {"Bancos", "Seguros e resseguros"}
+
+# Subsetores com menos acoes que isto recebem aviso de amostra pequena.
+AMOSTRA_MINIMA = 3
 
 # Units negociam um pacote de acoes. O balanco informa acoes, nao units, entao
 # o market cap calculado divide o total de acoes por este fator.
@@ -180,8 +259,16 @@ def setores() -> list[str]:
     return list(SETORES.keys())
 
 
-def tickers_do_setor(setor: str) -> list[str]:
+def subsetores(setor: str) -> list[str]:
     return list(SETORES.get(setor, {}).keys())
+
+
+def tickers_do_setor(setor: str) -> list[str]:
+    return [t for grupo in SETORES.get(setor, {}).values() for t in grupo]
+
+
+def tickers_do_subsetor(setor: str, subsetor: str) -> list[str]:
+    return list(SETORES.get(setor, {}).get(subsetor, {}).keys())
 
 
 def acoes_por_unit(ticker: str) -> int:
@@ -189,7 +276,7 @@ def acoes_por_unit(ticker: str) -> int:
 
 
 def todos_tickers_b3() -> list[str]:
-    return [t for tickers in SETORES.values() for t in tickers]
+    return list(_INDICE_B3)
 
 
 def tickers_macro() -> list[str]:
@@ -230,9 +317,26 @@ def setor_de(ticker: str) -> str:
     return "Desconhecido"
 
 
-# {ticker: (setor, nome)} construido uma vez na importacao.
+def subsetor_de(ticker: str) -> str:
+    limpo = de_yahoo(ticker)
+    return _SUBSETOR_DE.get(limpo, "")
+
+
+def eh_financeira(ticker: str) -> bool:
+    """Bancos e seguradoras: metricas de divida, EBITDA e margem nao se aplicam."""
+    return subsetor_de(ticker) in SUBSETORES_FINANCEIROS
+
+
+# {ticker: (setor, nome)} e {ticker: subsetor}, construidos na importacao.
 _INDICE_B3: dict[str, tuple[str, str]] = {
     ticker: (setor, nome)
-    for setor, tickers in SETORES.items()
+    for setor, grupos in SETORES.items()
+    for tickers in grupos.values()
     for ticker, nome in tickers.items()
+}
+_SUBSETOR_DE: dict[str, str] = {
+    ticker: subsetor
+    for grupos in SETORES.values()
+    for subsetor, tickers in grupos.items()
+    for ticker in tickers
 }

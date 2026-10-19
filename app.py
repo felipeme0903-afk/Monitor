@@ -38,6 +38,7 @@ JANELAS = {
 COLUNAS_SCREENER = [
     "Ticker",
     "Nome",
+    "Subsetor",
     "Preco",
     "Retorno periodo %",
     "Volatilidade 252d %",
@@ -52,6 +53,20 @@ COLUNAS_SCREENER = [
 
 
 # ------------------------------------------------------------ barra lateral
+
+TODOS = "Todos"
+
+
+def tickers_da_selecao(setor: str, subsetor: str) -> list[str]:
+    if subsetor == TODOS:
+        return uni.tickers_do_setor(setor)
+    return uni.tickers_do_subsetor(setor, subsetor)
+
+
+def titulo_da_selecao(controles: dict) -> str:
+    if controles["subsetor"] == TODOS:
+        return controles["setor"]
+    return f"{controles['setor']} > {controles['subsetor']}"
 
 
 def barra_lateral() -> dict:
@@ -73,9 +88,10 @@ def barra_lateral() -> dict:
         format_func=lambda t: f"{t} - {uni.BENCHMARKS[t]}",
     )
     periodicidade = st.sidebar.selectbox("Periodicidade do beta", ["Semanal", "Diaria"])
-    setor = st.sidebar.selectbox("Setor", uni.setores(), index=uni.setores().index("Financeiro"))
+    setor = st.sidebar.selectbox("Setor", uni.setores(), index=0)
+    subsetor = st.sidebar.selectbox("Subsetor", [TODOS] + uni.subsetores(setor))
 
-    disponiveis = uni.tickers_do_setor(setor)
+    disponiveis = tickers_da_selecao(setor, subsetor)
     escolhidos = st.sidebar.multiselect(
         "Tickers", disponiveis, default=disponiveis,
         format_func=lambda t: f"{t} - {uni.nome_de(t)}",
@@ -95,6 +111,7 @@ def barra_lateral() -> dict:
         "benchmark": benchmark,
         "periodicidade": periodicidade,
         "setor": setor,
+        "subsetor": subsetor,
         "tickers": escolhidos,
     }
 
@@ -141,18 +158,22 @@ def montar_screener(
 
         adj, close = df["Adj Close"], df["Close"]
         fund = _fundamentos_com_market_cap(chave, fundamentos.get(chave, {}), close, fim)
+        financeira = uni.eh_financeira(ticker)
 
         linhas.append(
             {
                 "Ticker": ticker,
                 "Nome": uni.nome_de(ticker),
+                "Subsetor": uni.subsetor_de(ticker),
                 "Preco": calc.ultimo_valor(close, fim),
                 "Retorno periodo %": _pct(calc.retorno_periodo(adj, inicio, fim)),
                 "Volatilidade 252d %": _pct(calc.volatilidade_anualizada(adj, 252, fim)),
                 "Beta 2A": calc.beta(adj, bench_adj, controles["periodicidade"], observacoes, fim),
-                "Market Equity/Debt": calc.market_equity_divida(fund, fim),
+                "Market Equity/Debt": (
+                    np.nan if financeira else calc.market_equity_divida(fund, fim)
+                ),
                 "P/L LTM": calc.preco_lucro(fund, fim),
-                "EV/EBITDA": calc.ev_ebitda(fund, fim),
+                "EV/EBITDA": np.nan if financeira else calc.ev_ebitda(fund, fim),
                 "P/VP": calc.preco_valor_patrimonial(fund, fim),
                 "DY LTM %": _pct(calc.dividend_yield_ltm(fonte.proventos(df), close, fim)),
                 "ROE %": _pct(calc.roe(fund, fim)),
@@ -210,7 +231,7 @@ def exibir_tabela(tabela: pd.DataFrame) -> None:
     duas_casas = {
         coluna: "{:,.2f}"
         for coluna in tabela.columns
-        if coluna not in ("Ticker", "Nome")
+        if coluna not in ("Ticker", "Nome", "Subsetor")
     }
     estilo = (
         tabela.style.format(duas_casas, na_rep="n/d")
@@ -251,7 +272,7 @@ def kpis_do_topo(
     colunas[2].metric("Selic meta", _texto(selic, "%"))
 
     movimentos = {}
-    for ticker in uni.tickers_do_setor(controles["setor"]):
+    for ticker in tickers_da_selecao(controles["setor"], controles["subsetor"]):
         _, variacao = variacao_diaria(cotacoes.get(uni.para_yahoo(ticker)), fim)
         if not pd.isna(variacao):
             movimentos[ticker] = variacao
@@ -265,7 +286,9 @@ def kpis_do_topo(
         colunas[3].metric("Maior alta", "n/d")
         colunas[4].metric("Maior baixa", "n/d")
 
-    st.caption(f"Maior alta e maior baixa do pregao dentro do setor {controles['setor']}.")
+    st.caption(
+        f"Maior alta e maior baixa do pregao dentro de {titulo_da_selecao(controles)}."
+    )
 
 
 def _delta(valor) -> str | None:
@@ -341,18 +364,27 @@ def resumo_setorial(
     fundamentos: dict[str, dict],
     inicio: pd.Timestamp,
     fim: pd.Timestamp,
+    nivel: str = "Setor",
 ) -> pd.DataFrame:
-    """Uma linha por setor. Medias para risco, medianas para multiplos."""
+    """Uma linha por setor ou subsetor. Medias para risco, medianas para multiplos."""
     bench_df = cotacoes.get(controles["benchmark"])
     bench = bench_df["Adj Close"] if bench_df is not None else pd.Series(dtype=float)
     observacoes = calc.SEMANAS_BETA_2A if controles["periodicidade"] == "Semanal" else 504
 
-    linhas = []
+    grupos = []
     for setor in uni.setores():
+        if nivel == "Setor":
+            grupos.append((setor, "", uni.tickers_do_setor(setor)))
+        else:
+            for subsetor in uni.subsetores(setor):
+                grupos.append((setor, subsetor, uni.tickers_do_subsetor(setor, subsetor)))
+
+    linhas = []
+    for setor, subsetor, tickers in grupos:
         retornos, volatilidades, betas, precos_lucro, yields, capital = [], [], [], [], [], []
         equity_divida = []
 
-        for ticker in uni.tickers_do_setor(setor):
+        for ticker in tickers:
             chave = uni.para_yahoo(ticker)
             df = cotacoes.get(chave)
             if df is None:
@@ -367,7 +399,8 @@ def resumo_setorial(
             )
             precos_lucro.append(calc.preco_lucro(fund, fim))
             yields.append(calc.dividend_yield_ltm(fonte.proventos(df), close, fim))
-            equity_divida.append(calc.market_equity_divida(fund, fim))
+            if not uni.eh_financeira(ticker):
+                equity_divida.append(calc.market_equity_divida(fund, fim))
             if fund.get("market_cap") and not pd.isna(fund["market_cap"]):
                 capital.append(float(fund["market_cap"]))
 
@@ -376,6 +409,7 @@ def resumo_setorial(
         linhas.append(
             {
                 "Setor": setor,
+                **({"Subsetor": subsetor} if nivel == "Subsetor" else {}),
                 "Retorno periodo %": _pct(_media(retornos)),
                 "Volatilidade media %": _pct(_media(volatilidades)),
                 "Beta medio": _media(betas),
@@ -407,10 +441,16 @@ def aba_setores(
     inicio: pd.Timestamp,
     fim: pd.Timestamp,
 ) -> None:
-    tabela = resumo_setorial(controles, cotacoes, fundamentos, inicio, fim)
+    nivel = st.radio("Nivel", ["Setor", "Subsetor"], horizontal=True, key="nivel_setores")
+    tabela = resumo_setorial(controles, cotacoes, fundamentos, inicio, fim, nivel)
     if tabela.empty:
         st.warning("Nao foi possivel consolidar nenhum setor.")
         return
+
+    if nivel == "Subsetor":
+        filtro = st.selectbox("Setor", [TODOS] + uni.setores(), key="setor_dos_subsetores")
+        if filtro != TODOS:
+            tabela = tabela[tabela["Setor"] == filtro]
 
     visivel = tabela.drop(columns=["Market Cap total"]).assign(
         **{"Market Cap total (R$ bi)": tabela["Market Cap total"] / 1e9}
@@ -427,34 +467,48 @@ def aba_setores(
     estilo = (
         visivel.style.format({coluna: "{:,.2f}" for coluna in numericas}, na_rep="n/d")
         .map(_cor_do_sinal, subset=["Retorno periodo %"])
+        .map(_cor_da_amostra, subset=["Acoes"])
     )
     st.dataframe(estilo, width="stretch", hide_index=True)
     st.caption(
-        "Retorno, volatilidade e beta sao medias simples das acoes do setor. "
-        "P/L, DY e Market Equity/Debt sao medianas, que ignoram n/d e P/L negativo."
+        "Retorno, volatilidade e beta sao medias simples das acoes do grupo. "
+        "P/L, DY e Market Equity/Debt sao medianas, que ignoram n/d e P/L negativo. "
+        "Market Equity/Debt exclui bancos e seguradoras, onde divida e captacao. "
+        f"Contagem em amarelo: menos de {uni.AMOSTRA_MINIMA} acoes, "
+        "a media e a mediana representam poucas empresas."
     )
 
+    # Os graficos rotulam pela coluna "Setor": no nivel Subsetor ela recebe o subsetor.
+    grafico = tabela.assign(Setor=tabela["Subsetor"]) if nivel == "Subsetor" else tabela
+    grupo = "subsetor" if nivel == "Subsetor" else "setor"
+
     st.divider()
-    ordenado = tabela.set_index("Setor")["Retorno periodo %"]
+    ordenado = grafico.set_index("Setor")["Retorno periodo %"]
     st.plotly_chart(
         graf.barras_horizontais(ordenado, "Retorno no periodo %"), width="stretch"
     )
 
     st.divider()
-    st.caption("Cada bolha e um setor. O tamanho e o Market Cap somado das acoes.")
-    st.plotly_chart(graf.dispersao_setores(tabela), width="stretch")
+    st.caption(f"Cada bolha e um {grupo}. O tamanho e o Market Cap somado das acoes.")
+    st.plotly_chart(graf.dispersao_setores(grafico), width="stretch")
+
+
+def _cor_da_amostra(valor) -> str:
+    if pd.isna(valor) or valor >= uni.AMOSTRA_MINIMA:
+        return ""
+    return "color: #F5B041"
 
 
 # ---------------------------------------------------------------- raio-x
 
 
-def opcoes_raio_x(setor: str) -> list[str]:
-    """Acoes do setor escolhido mais todos os ativos macro."""
-    return uni.tickers_do_setor(setor) + uni.tickers_macro()
+def opcoes_raio_x(controles: dict) -> list[str]:
+    """Acoes do setor (ou subsetor) escolhido mais todos os ativos macro."""
+    return tickers_da_selecao(controles["setor"], controles["subsetor"]) + uni.tickers_macro()
 
 
 def rotulo_raio_x(ticker: str) -> str:
-    classe = uni.setor_de(ticker)
+    classe = uni.subsetor_de(ticker) or uni.setor_de(ticker)
     return f"{ticker} - {uni.nome_de(ticker)} ({classe})"
 
 
@@ -466,7 +520,7 @@ def aba_raio_x(
 ) -> None:
     esquerda, direita = st.columns([3, 1])
     escolhido = esquerda.selectbox(
-        "Ativo", opcoes_raio_x(controles["setor"]), format_func=rotulo_raio_x
+        "Ativo", opcoes_raio_x(controles), format_func=rotulo_raio_x
     )
     tipo = direita.radio("Grafico", ["Candlestick", "Linha"], horizontal=True)
 
@@ -526,12 +580,23 @@ def _cartoes_raio_x(
 
     fundamentos, _ = fonte.carregar_fundamentos((chave,))
     fund = _fundamentos_com_market_cap(chave, fundamentos.get(chave, {}), df["Close"], fim)
-    margem = calc.margens(fund, fim)
+    financeira = uni.eh_financeira(chave)
 
     linha_dois = st.columns(5)
     linha_dois[0].metric("P/L LTM", _texto(calc.preco_lucro(fund, fim)))
-    linha_dois[1].metric("EV/EBITDA", _texto(calc.ev_ebitda(fund, fim)))
     linha_dois[2].metric("ROE", _texto(_pct(calc.roe(fund, fim)), "%"))
+    if financeira:
+        linha_dois[1].metric("P/VP", _texto(calc.preco_valor_patrimonial(fund, fim)))
+        linha_dois[3].metric("Margem liquida", "n/d")
+        linha_dois[4].metric("Divida liquida/EBITDA", "n/d")
+        st.caption(
+            "Banco ou seguradora: EV/EBITDA, margem e divida liquida/EBITDA nao se "
+            "aplicam. No lugar de EV/EBITDA aparece P/VP."
+        )
+        return
+
+    margem = calc.margens(fund, fim)
+    linha_dois[1].metric("EV/EBITDA", _texto(calc.ev_ebitda(fund, fim)))
     linha_dois[3].metric("Margem liquida", _texto(_pct(margem["liquida"]), "%"))
     linha_dois[4].metric(
         "Divida liquida/EBITDA", _texto(calc.divida_liquida_ebitda(fund, fim), "x")
@@ -553,7 +618,7 @@ def aba_fundamentos(
     inicio: pd.Timestamp,
     fim: pd.Timestamp,
 ) -> None:
-    acoes = uni.tickers_do_setor(controles["setor"])
+    acoes = tickers_da_selecao(controles["setor"], controles["subsetor"])
     if not acoes:
         st.info("Nenhuma acao cadastrada neste setor.")
         return
@@ -567,6 +632,16 @@ def aba_fundamentos(
         st.error(f"{escolhida}: {falhas[chave]}")
         return
     fund = fundamentos.get(chave, {})
+
+    if uni.eh_financeira(escolhida):
+        st.info(
+            "Banco ou seguradora: margens e divida bruta por trimestre nao se aplicam, "
+            "porque a receita e margem financeira e a divida e captacao. "
+            "Compare pelo P/L, P/VP e ROE no Screener."
+        )
+        st.caption(f"Proventos entre {inicio:%d/%m/%Y} e {fim:%d/%m/%Y}")
+        _tabela_proventos(chave, cotacoes, inicio, fim)
+        return
 
     st.caption("Margens por trimestre publicado")
     st.plotly_chart(
@@ -646,7 +721,7 @@ def main() -> None:
     ultimo_pregao = max(df.index.max() for df in cotacoes.values())
     inicio, fim = intervalo(controles, ultimo_pregao)
 
-    st.title(f"Monitor B3 - {controles['setor']}")
+    st.title(f"Monitor B3 - {titulo_da_selecao(controles)}")
     st.caption(
         f"Janela {inicio:%d/%m/%Y} a {fim:%d/%m/%Y} | benchmark {controles['benchmark']} | "
         f"beta {controles['periodicidade'].lower()} | ultimo pregao {ultimo_pregao:%d/%m/%Y}"
@@ -662,7 +737,7 @@ def main() -> None:
 
     with abas[1]:
         st.caption(
-            "A primeira consolidacao dos 10 setores baixa os demonstrativos de "
+            f"A primeira consolidacao dos {len(uni.setores())} setores baixa os demonstrativos de "
             "todas as acoes e demora alguns minutos. Depois disso o cache em "
             "disco responde na hora por 24 horas."
         )
@@ -699,6 +774,12 @@ def aba_screener(
 
     tabela = montar_screener(controles, cotacoes, fundamentos, inicio, fim)
     exibir_tabela(aplicar_filtros(tabela))
+    if any(uni.eh_financeira(t) for t in controles["tickers"]):
+        st.caption(
+            "Bancos e seguradoras ficam sem EV/EBITDA e Market Equity/Debt: "
+            "nesses negocios a divida e captacao e nao existe EBITDA. "
+            "Use P/L, P/VP e ROE para compara-los."
+        )
     _listar_falhas(falhas_preco, falhas_fund)
 
 
