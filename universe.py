@@ -223,7 +223,6 @@ ACOES_POR_UNIT: dict[str, int] = {
 MACRO: dict[str, dict[str, str]] = {
     "Indices": {
         "^BVSP": "Ibovespa",
-        "^SMLL": "Small Caps (SMLL)",
         "^GSPC": "S&P 500",
         "^NDX": "Nasdaq 100",
         "^STOXX50E": "Euro Stoxx 50",
@@ -253,12 +252,7 @@ MACRO: dict[str, dict[str, str]] = {
 # Juros brasileiros vem da API SGS do Banco Central, nao do Yahoo.
 SERIES_BCB = {"selic_meta": 432, "cdi_diario": 12}
 
-BENCHMARKS = {"^BVSP": "Ibovespa", "^SMLL": "Small Caps (SMLL)", "^GSPC": "S&P 500"}
-
-# Tickers que o Yahoo as vezes nao entrega. Se o primeiro falhar, o download
-# tenta o substituto e guarda o resultado sob o ticker original.
-# SMAL11 e o ETF da iShares que replica o SMLL.
-SUBSTITUTOS_YAHOO: dict[str, str] = {"^SMLL": "SMAL11.SA"}
+BENCHMARKS = {"^BVSP": "Ibovespa", "^GSPC": "S&P 500"}
 
 
 def setores() -> list[str]:

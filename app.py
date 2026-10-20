@@ -260,26 +260,16 @@ def variacao_diaria(df: pd.DataFrame, fim: pd.Timestamp) -> tuple[float, float]:
 def kpis_do_topo(
     controles: dict, cotacoes: dict[str, pd.DataFrame], fim: pd.Timestamp
 ) -> None:
-    colunas = st.columns(6)
+    colunas = st.columns(5)
 
     ibov, var_ibov = variacao_diaria(cotacoes.get("^BVSP"), fim)
     colunas[0].metric("Ibovespa", _texto(ibov, " pts", casas=0), _delta(_pct(var_ibov)))
 
-    smll_df = cotacoes.get("^SMLL")
-    smll, var_smll = variacao_diaria(smll_df, fim)
-    substituto = smll_df.attrs.get("substituto") if smll_df is not None else None
-    if substituto:
-        # O ETF negocia em reais por cota, nao em pontos do indice.
-        rotulo = f"Small Caps (via {substituto.removesuffix('.SA')})"
-        colunas[1].metric(rotulo, _texto(smll, prefixo="R$ "), _delta(_pct(var_smll)))
-    else:
-        colunas[1].metric("Small Caps", _texto(smll, " pts", casas=0), _delta(_pct(var_smll)))
-
     dolar, var_dolar = variacao_diaria(cotacoes.get("BRL=X"), fim)
-    colunas[2].metric("USD/BRL", _texto(dolar), _delta(_pct(var_dolar)))
+    colunas[1].metric("USD/BRL", _texto(dolar), _delta(_pct(var_dolar)))
 
     selic = fonte.selic_meta()
-    colunas[3].metric("Selic meta", _texto(selic, "%"))
+    colunas[2].metric("Selic meta", _texto(selic, "%"))
 
     movimentos = {}
     for ticker in tickers_da_selecao(controles["setor"], controles["subsetor"]):
@@ -290,11 +280,11 @@ def kpis_do_topo(
     if movimentos:
         alta = max(movimentos, key=movimentos.get)
         baixa = min(movimentos, key=movimentos.get)
-        colunas[4].metric(f"Maior alta - {alta}", _delta(_pct(movimentos[alta])))
-        colunas[5].metric(f"Maior baixa - {baixa}", _delta(_pct(movimentos[baixa])))
+        colunas[3].metric(f"Maior alta - {alta}", _delta(_pct(movimentos[alta])))
+        colunas[4].metric(f"Maior baixa - {baixa}", _delta(_pct(movimentos[baixa])))
     else:
-        colunas[4].metric("Maior alta", "n/d")
-        colunas[5].metric("Maior baixa", "n/d")
+        colunas[3].metric("Maior alta", "n/d")
+        colunas[4].metric("Maior baixa", "n/d")
 
     st.caption(
         f"Maior alta e maior baixa do pregao dentro de {titulo_da_selecao(controles)}."
@@ -613,10 +603,10 @@ def _cartoes_raio_x(
     )
 
 
-def _texto(valor, sufixo: str = "", casas: int = 2, prefixo: str = "") -> str:
+def _texto(valor, sufixo: str = "", casas: int = 2) -> str:
     if valor is None or pd.isna(valor):
         return "n/d"
-    return f"{prefixo}{valor:,.{casas}f}{sufixo}"
+    return f"{valor:,.{casas}f}{sufixo}"
 
 
 # ----------------------------------------------------------- fundamentos
