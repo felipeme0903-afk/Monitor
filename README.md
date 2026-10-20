@@ -17,8 +17,13 @@ o pipeline é determinístico e não exige nenhuma chave de API.
 
 ## O que o app mostra
 
-No topo, cinco indicadores do dia: Ibovespa, dólar, Selic meta e a maior alta e
-a maior baixa do setor ou subsetor selecionado. Abaixo, cinco abas.
+No topo, seis indicadores do dia: Ibovespa, índice Small Caps (SMLL), dólar,
+Selic meta e a maior alta e a maior baixa do setor ou subsetor selecionado.
+Abaixo, cinco abas.
+
+O SMLL vem do Yahoo pelo ticker `^SMLL`. Se o Yahoo não entregar esse ticker, o
+app usa o ETF SMAL11, que replica o índice. Nesse caso o card mostra o preço da
+cota em reais, não os pontos do índice; a variação percentual é equivalente.
 
 | Aba | Conteúdo |
 |-----|----------|

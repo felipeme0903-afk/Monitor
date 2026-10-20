@@ -20,7 +20,7 @@ import requests
 import streamlit as st
 import yfinance as yf
 
-from universe import SERIES_BCB
+from universe import SERIES_BCB, SUBSTITUTOS_YAHOO
 
 PASTA_DADOS = Path(__file__).resolve().parent / "data"
 VALIDADE_FUNDAMENTOS = dt.timedelta(hours=24)
@@ -45,6 +45,24 @@ def baixar_cotacoes(
     if not tickers:
         return {}, {}
 
+    series, falhas = _baixar_lote(tickers, periodo)
+
+    # Segunda tentativa, so para quem tem substituto cadastrado.
+    pendentes = {t: SUBSTITUTOS_YAHOO[t] for t in falhas if t in SUBSTITUTOS_YAHOO}
+    if pendentes:
+        extras, _ = _baixar_lote(list(pendentes.values()), periodo)
+        for original, substituto in pendentes.items():
+            if substituto in extras:
+                series[original] = extras[substituto]
+                series[original].attrs["substituto"] = substituto
+                falhas.pop(original)
+
+    return series, falhas
+
+
+def _baixar_lote(
+    tickers: list[str], periodo: str
+) -> tuple[dict[str, pd.DataFrame], dict[str, str]]:
     try:
         bruto = yf.download(
             tickers,
