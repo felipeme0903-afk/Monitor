@@ -1,7 +1,7 @@
 """Monitor B3 - interface Streamlit.
 
-Cinco abas: panorama macro, setores lado a lado, screener do setor,
-raio-X individual e fundamentos.
+Cinco abas: panorama macro, setores lado a lado, visao do setor,
+perfil do ativo e fundamentos.
 
 Rodar com:  streamlit run app.py
 """
@@ -499,7 +499,7 @@ def _cor_da_amostra(valor) -> str:
     return "color: #F5B041"
 
 
-# ---------------------------------------------------------------- raio-x
+# ---------------------------------------------------------------- perfil do ativo
 
 
 def opcoes_raio_x(controles: dict) -> list[str]:
@@ -637,7 +637,7 @@ def aba_fundamentos(
         st.info(
             "Banco ou seguradora: margens e divida bruta por trimestre nao se aplicam, "
             "porque a receita e margem financeira e a divida e captacao. "
-            "Compare pelo P/L, P/VP e ROE no Screener."
+            "Compare pelo P/L, P/VP e ROE na aba Visão do Setor."
         )
         st.caption(f"Proventos entre {inicio:%d/%m/%Y} e {fim:%d/%m/%Y}")
         _tabela_proventos(chave, cotacoes, inicio, fim)
@@ -730,7 +730,7 @@ def main() -> None:
     kpis_do_topo(controles, cotacoes, ultimo_pregao)
     st.divider()
 
-    abas = st.tabs(["Panorama Macro", "Setores", "Screener", "Raio-X", "Fundamentos"])
+    abas = st.tabs(["Panorama Macro", "Setores", "Visão do Setor", "Perfil do Ativo", "Fundamentos"])
 
     with abas[0]:
         aba_macro(cotacoes, inicio, fim)

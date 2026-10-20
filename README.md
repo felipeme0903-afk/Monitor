@@ -10,7 +10,7 @@ o pipeline é determinístico e não exige nenhuma chave de API.
 | Etapa | Escopo | Situação |
 |-------|--------|----------|
 | 1 | `universe.py`, `data.py`, barra lateral e Aba 3 (screener) | Concluída |
-| 2 | `metrics.py` completo, `charts.py` e Aba 4 (raio-X individual) | Concluída |
+| 2 | `metrics.py` completo, `charts.py` e Aba 4 (Perfil do Ativo) | Concluída |
 | 3 | Aba 5 (fundamentos) com cache em disco | Concluída |
 | 4 | Abas 1 e 2 e KPIs do topo | Concluída |
 | 5 | `theme.py`, revisão de erros e README final | Concluída |
@@ -24,8 +24,8 @@ a maior baixa do setor ou subsetor selecionado. Abaixo, cinco abas.
 |-----|----------|
 | Panorama Macro | Índices, juros, commodities e câmbio com retorno de 1 dia, 1 mês e no ano, mais um comparativo normalizado em base 100 |
 | Setores | Setores ou subsetores lado a lado (seletor de nível), barras ordenadas por retorno e uma dispersão de P/L mediano contra retorno com bolha proporcional ao Market Cap |
-| Screener | Todas as ações do setor ou subsetor com risco, múltiplos e filtros de P/L, volatilidade e Dividend Yield |
-| Raio-X | Uma ação, índice ou commodity com candlestick, médias móveis, volume, drawdown e volatilidade |
+| Visão do Setor | Todas as ações do setor ou subsetor com risco, múltiplos e filtros de P/L, volatilidade e Dividend Yield |
+| Perfil do Ativo | Uma ação, índice ou commodity com candlestick, médias móveis, volume, drawdown e volatilidade |
 | Fundamentos | Margens por trimestre, dívida, caixa e patrimônio, e a tabela de proventos |
 
 ## Como rodar localmente
